@@ -1,0 +1,154 @@
+#include "SceneGenerator.h"
+SceneGenerator::SceneGenerator()
+{
+	m_bUseImgBg = false;
+	m_iViewerWidth = 640;
+	m_iViewerHeight = 480;
+}
+
+SceneGenerator::~SceneGenerator()
+{
+}
+
+
+void SceneGenerator::SetViewerSize(int width, int height)
+{
+	m_iViewerWidth = width;
+	m_iViewerHeight = height;
+}
+
+void SceneGenerator::SetObjectSelfTransform(cv::Mat & mat)
+{
+	m_ObjectSelfTransform = toOSGMat(mat);
+}
+
+void SceneGenerator::Initialize()
+{
+	m_Root = new osg::Group;
+
+	m_MainViewer = new osgViewer::Viewer;
+	m_MainViewer->setSceneData(m_Root);
+
+//	m_MainViewer->setCameraManipulator(new osgGA::TrackballManipulator);
+
+
+	m_Model = new osg::MatrixTransform;
+	m_Root->addChild(m_Model);
+
+	osg::Node* pNode = osgDB::readNodeFile(m_ModelName);
+	if (pNode)
+		m_Model->addChild(pNode);
+
+	osg::ref_ptr<osg::GraphicsContext::Traits> traits = new osg::GraphicsContext::Traits;
+	traits->x = 100;
+	traits->y = 100;
+	traits->width = 0;
+	traits->height = 0;
+	traits->windowDecoration = false;
+	traits->doubleBuffer = true;
+	traits->sharedContext = 0;
+	traits->samples = 16;
+
+
+	osg::ref_ptr<osg::GraphicsContext> gc = osg::GraphicsContext::createGraphicsContext(traits.get());
+	osgViewer::GraphicsWindow* gw = dynamic_cast<osgViewer::GraphicsWindow*>(gc.get());
+
+	// create the view of the scene.
+	m_MainViewer->getCamera()->setGraphicsContext(gc.get());
+	m_MainViewer->getCamera()->setViewport(0, 0, m_iViewerWidth, m_iViewerHeight);
+
+	float left, right, bottom, top, zNear = 1.0f, zFar = 1000.f;	//zNear, zFar自动计算
+	yxy::CameraParam::GetOsgVirtualCamParam(m_Intrinsic, m_iViewerWidth, m_iViewerHeight, left, right, bottom, top);
+	m_MainViewer->getCamera()->setProjectionMatrixAsFrustum(left, right, bottom, top, zNear, zFar);
+	m_MainViewer->getCamera()->setViewMatrix(osg::Matrix::identity());
+	m_MainViewer->getCamera()->setClearColor(osg::Vec4(51.0 / 255.0, 51.0 / 255.0, 102.0 / 255.0, 1.0));
+
+	if (m_bUseImgBg)
+		GetOrCreateBKTexture()->setImage(ConvertCVMat2OsgImg(m_BgImgMat));
+
+	m_MainViewer->getCamera()->setRenderTargetImplementation(osg::Camera::FRAME_BUFFER_OBJECT);
+	m_FBOImage = new osg::Image();
+	m_FBOImage->allocateImage(m_iViewerWidth, m_iViewerHeight, 1, GL_RGBA, GL_UNSIGNED_BYTE);
+	m_MainViewer->getCamera()->attach(osg::Camera::COLOR_BUFFER, m_FBOImage,6);
+
+// 	m_FBOCamera = new osg::Camera();
+// 	m_FBOCamera->setViewport(m_MainViewer->getCamera()->getViewport());
+// 	m_FBOCamera->setViewMatrix(m_MainViewer->getCamera()->getViewMatrix());
+// 	m_FBOCamera->setProjectionMatrix(m_MainViewer->getCamera()->getProjectionMatrix());
+// 	m_FBOCamera->setRenderTargetImplementation(osg::Camera::FRAME_BUFFER_OBJECT);
+// 	m_FBOImage = new osg::Image();
+// 	m_FBOImage->allocateImage(m_iViewerWidth, m_iViewerHeight, 1, GL_RGBA, GL_UNSIGNED_BYTE);
+// 	m_FBOCamera->attach(osg::Camera::COLOR_BUFFER, m_FBOImage, 0);
+// 	m_FBOCamera->setRenderOrder(osg::Camera::NESTED_RENDER);
+
+	m_MainViewer->realize();
+}
+
+cv::Mat SceneGenerator::GetSyntheticImg()
+{
+	if (!m_Root)
+		Initialize();
+
+	osg::Matrix PoseMatrix = toOSGMat(m_PoseMat);
+
+	m_Model->setMatrix(m_ObjectSelfTransform* PoseMatrix);
+
+	m_MainViewer->frame();
+	Sleep(100);				//等待写入完成
+
+	return ConvertOsgImg2CVMat(m_FBOImage);
+}
+
+osg::Matrix SceneGenerator::toOSGMat(const cv::Mat& mat)
+{
+	osg::Matrix osgMat;
+	if (mat.rows == 4 && mat.cols == 4 && mat.elemSize() == sizeof(double))
+	{
+		for (int i = 0; i < 4; ++i)
+			for (int j = 0; j < 4; ++j)
+				osgMat(i, j) = mat.at<double>(i, j);
+	}
+
+	return osgMat;
+}
+
+osg::Texture2D* SceneGenerator::GetOrCreateBKTexture()
+{
+	if (!m_BGTexture)
+	{
+		m_BGTexture = new osg::Texture2D;
+		m_BGTexture->setFilter(osg::Texture2D::MIN_FILTER, osg::Texture2D::LINEAR);
+		m_BGTexture->setFilter(osg::Texture2D::MAG_FILTER, osg::Texture2D::LINEAR);
+		m_BGTexture->setWrap(osg::Texture2D::WRAP_S, osg::Texture2D::CLAMP);
+		m_BGTexture->setWrap(osg::Texture2D::WRAP_T, osg::Texture2D::CLAMP);
+		m_BGTexture->setResizeNonPowerOfTwoHint(false);
+
+		osg::ref_ptr<osg::Drawable> quad = osg::createTexturedQuadGeometry(osg::Vec3(), osg::Vec3(1.0f, 0.0f, 0.0f), osg::Vec3(0.0f, 1.0f, 0.0f));
+		quad->getOrCreateStateSet()->setTextureAttributeAndModes(0, m_BGTexture.get());
+		quad->getOrCreateStateSet()->setMode(GL_CULL_FACE, osg::StateAttribute::OFF);
+		quad->getOrCreateStateSet()->setMode(GL_LIGHTING, osg::StateAttribute::OFF);
+		quad->getOrCreateStateSet()->setMode(GL_SHADE_MODEL, osg::ShadeModel::FLAT);
+		osg::ref_ptr<osg::Geode> geode = new osg::Geode;
+		geode->addDrawable(quad.get());
+
+		m_BGCamera = new osg::Camera;
+		m_BGCamera->setClearMask(0);
+		m_BGCamera->setCullingActive(false);
+		m_BGCamera->setAllowEventFocus(false);
+		m_BGCamera->setReferenceFrame(osg::Transform::ABSOLUTE_RF);
+		m_BGCamera->setRenderOrder(osg::Camera::NESTED_RENDER);
+		m_BGCamera->setProjectionMatrix(osg::Matrix::ortho2D(0.0, 1.0, 0.0, 1.0));
+		m_BGCamera->addChild(geode.get());
+		osg::StateSet* ss = m_BGCamera->getOrCreateStateSet();
+		ss->setMode(GL_LIGHTING, osg::StateAttribute::OFF);
+		ss->setAttributeAndModes(new osg::Depth(osg::Depth::LEQUAL, 1.0, 1.0));
+
+		if (!m_BGCamera->getNumParents())
+			m_MainViewer->getCamera()->addChild(m_BGCamera.get());
+	}
+
+
+	return m_BGTexture.get();
+
+	return 0;
+}

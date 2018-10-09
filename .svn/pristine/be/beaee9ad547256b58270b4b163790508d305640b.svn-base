@@ -1,0 +1,102 @@
+#include "PoseEstimation.h"
+
+
+PoseEstimation::PoseEstimation()
+{
+	m_ModelRadius = 0;
+}
+
+
+PoseEstimation::~PoseEstimation()
+{
+}
+
+void PoseEstimation::CalCoarsePoses(vector<cv::Mat>& ellMats)
+{
+	if (ellMats.size() < 1)
+	{
+		cout << "No ellipse param for cal coarse pose" << endl;
+		return;
+	}
+	if (m_ModelRadius == 0)
+	{
+		cout << "ModelRadius improperly set" << endl;
+		return;
+	}
+	if (m_Intrinsic.empty())
+	{
+		cout << "No camera intrinsic parameter read" << endl;
+		return;
+	}
+
+	cv::Mat rot_cv2osg = (cv::Mat_<double>(3, 3) <<
+		1, 0, 0,
+		0, -1, 0,
+		0, 0, -1);
+	
+	cv::Mat Qone,ellMat,eig_Vector,eig_Value;
+	double lmd1, lmd2, lmd3,w;
+	cv::Mat Vmax, Vmin;
+	cv::Mat pNorm,nCenter,tCenter;
+	double p1, p2, p3;
+	cv::Mat vec_P1, vec_P2;
+	double dist_factor, dist;
+	cv::Mat CoarsePose;
+	cv::Mat rowmat = (cv::Mat_<double>(1, 4) << 0, 0, 0, 1);
+
+	for (int i = 0;i < ellMats.size();i++)
+	{
+		ellMat = ellMats[i];
+		Qone = rot_cv2osg.t()*m_Intrinsic.t()*ellMat*m_Intrinsic*rot_cv2osg;
+		cv::eigen(Qone, eig_Value, eig_Vector);
+		lmd1 = eig_Value.at<double>(2, 0);
+		lmd2 = eig_Value.at<double>(1, 0);
+		lmd3 = eig_Value.at<double>(0, 0);
+		Vmax = (eig_Vector.row(0)).t();
+		Vmin = (eig_Vector.row(2)).t();
+		for (int j = 0; j < 2;j++)
+		{
+			if (j == 0) 
+				w = 1;
+			else 
+				w = -1;
+			pNorm = sqrt((lmd3 - lmd2) / (lmd3 - lmd1))*Vmax + w * sqrt((lmd2 - lmd1) / (lmd3 - lmd1))*Vmin;
+			if (pNorm.at<double>(2, 0) < 0)
+				pNorm = -pNorm;
+			cv::normalize(pNorm, pNorm);
+			nCenter = Qone.inv()*pNorm;
+			cv::normalize(nCenter, nCenter);
+			p1 = pNorm.at<double>(0, 0);
+			p2 = pNorm.at<double>(1, 0);
+			p3 = pNorm.at<double>(2, 0);
+			vec_P1 = (cv::Mat_<double>(3, 1) << -p2,p1,0);
+			cv::normalize(vec_P1, vec_P1);
+			vec_P2 = (cv::Mat_<double>(3, 1) << -p3 * p1, -p2 * p3, p1*p1 + p2*p2);
+			cv::normalize(vec_P2, vec_P2);
+			dist_factor = sqrt(-lmd2 / lmd3 - lmd2 / lmd1 + 1);
+			dist = dist_factor * m_ModelRadius;
+			tCenter = dist * nCenter;
+			hconcat(vec_P1, vec_P2, CoarsePose);
+			hconcat(CoarsePose, pNorm, CoarsePose);
+			hconcat(CoarsePose, tCenter,CoarsePose);
+			vconcat(CoarsePose, rowmat, CoarsePose);
+			cout << "The coarsePose " << j << " is: " << endl << CoarsePose << endl;
+			m_coarsePoses.push_back(CoarsePose);
+		}	
+	}
+}
+
+cv::Mat PoseEstimation::GenerateTemplateImg(cv::Mat & pose)
+{
+	//设置是否使用图片背景flag
+	//把intrinsic传给 SceneGenerator virtualProjectionMatrix
+	//把modelName传给 SceneGenerator
+	//把ImgSize传给 SceneGenerator
+	//设置，不使用真实图片背景Set(bUseImgBg false)
+	//If(bBackgroundUseImg==true)...
+	//SceneGenerator.getSynthetic
+	//在yxyutil实现 osg 和cv互转
+	
+	//返回Template Img,需要osgImg转成cvmat
+	return cv::Mat();
+}

@@ -1,0 +1,51 @@
+#pragma once
+#include "EllipseDetection.h"
+#include "YXYUtils.h" //指数积
+#include "SceneGenerator.h"
+#include "MarkerValidator.h"
+#include <math.h>
+
+using namespace yxy;
+using namespace ElliFit;
+using namespace std;
+
+/*从Ellipse/Ellipses计算Pose,连续帧之间pose可以优化，得找一个目标函数*/
+class PoseEstimation
+{
+public:
+	PoseEstimation();
+	~PoseEstimation();
+	float GetModelRadius() const { return m_ModelRadius; }
+	void SetModelRadius(float val) { m_ModelRadius = val; }
+	cv::Mat GetIntrinsic() const { return m_Intrinsic; }
+	void SetIntrinsic(cv::Mat val) { m_Intrinsic = val; }
+
+public:
+	void CalCoarsePoses(vector<cv::Mat> & ellMats);//set radius,K,后用ellMats计算2个coarse pose
+	//计算两个图像的Error,用于SelectCandidate
+	void CalImgErrorByDF();
+	void CalImgErrorByGF();
+	void CalImgErrorBySSD();
+	void SelectCandidatePose(vector<cv::Mat> & CoarsePoses, vector<ElliFit::Ellipse> & m_ellipses);//由 src 和 template roi 筛选出DF error最小的pose 
+
+	//需要实验的方法
+	void CalFinePoseByDFHomography();//用m_SrcImg,m_candidatePose,m_TemplateImg计算homo,把homo分解 r，t
+	void CalFinePoseByKpsHomography();
+	void CalFinePoseBy3DIC();
+
+	//可视化计算结果
+	void ShowARPoseResults();//Mode 3
+	void ShowMethodDifference();//Mode 4
+
+private:
+	cv::Mat m_SrcImg;//输入源图像,可以是普通图像，也可以是校正后的图像
+	cv::Mat m_TemplateImg;//要用spscene里的yxy osg2cv函数把 synthetic img转为cv格式
+	cv::Mat m_Intrinsic;//计算P要用到,可以
+	float m_ModelRadius;
+	string m_ModelName;
+	cv::Mat GenerateTemplateImg(cv::Mat & pose);
+	cv::Mat m_CandidatePose,m_FinePose;
+	vector<cv::Mat> m_coarsePoses;
+
+};
+
