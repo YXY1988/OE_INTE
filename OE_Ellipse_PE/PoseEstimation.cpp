@@ -684,8 +684,12 @@ void PoseEstimation::CalFinePoseBy3DIC41DOF()
 	Mat tmpl = Img_Sync(temproi).clone();
 	Mat image = Img_Real;
 
+#pragma region CAL_BY_1D_ITER
 	//Todo: 1. 按照 1D Rotation Rz(theta) 计算 score, 求出 theta 的增量, 合成 temp_CamRelMat
+#pragma endregion CAL_BY_1D_ITER
+#pragma  region CAL_BY_STEP
 	//Todo: 2. 按照 score 收敛的变化量调整 theta 的步长，逐渐 choose best templates，比如 30度生成 12 个 templates，选最接近的，60度再生成 12 个 templates, 之后 10° 生成 10 个 templates,误差控制在1°
+#pragma  endregion CAL_BY_STEP
 	//Todo: 3. 配置 Release 加快试验速度
 
 	Mat temp_FinePose, temp_CamRelMat;
@@ -702,7 +706,64 @@ void PoseEstimation::CalFinePoseBy3DIC41DOF()
 
 Mat PoseEstimation::SelectOptimalPose(vector<cv::Mat>& Poses, cv::Rect & rect, cv::Mat & CapRoi, int ErrMode)
 {
-	Mat ResultPose;
+	if(Poses.size()==0||rect.empty()||CapRoi.empty())
+	{
+		cout << "No Poses || no rect || no CapRoi " << endl;
+	}
+	Mat ResultPose,resultMat;
+	Mat tmpl_full,tmpl_roi;
+	float fPoseScore = 50.0;
+	float fTempScore = 50.0;
+	int pose_index = 0;
+	m_SyncGenerator.SetReInitialize(true);
+	for (int i = 0; i < Poses.size(); ++i)
+	{
+		tmpl_full = GenerateTemplateImg(Poses[i]);
+		tmpl_roi = tmpl_full(rect).clone();
+		cvtColor(tmpl_roi, tmpl_roi, CV_BGR2GRAY);
+#ifdef SHOWIMG
+		imshow("sync tmpl by gened poses", tmpl_full);
+		waitKey(50);
+#endif
+		switch (ErrMode)
+		{
+		case 1:
+			fTempScore = CalImgErrorBySSD(CapRoi, tmpl_roi);
+			break;
+		case 2:
+			fTempScore = CalImgErrorByGF(CapRoi, tmpl_roi);
+			break;
+		case 3:
+			fTempScore = CalImgErrorByDF(CapRoi, tmpl_roi);
+			break;
+		default:
+			break;
+		}
+#ifdef DETAIL
+		cout << "The score of gened pose " << i << " is " << fTempScore << endl;
+#endif
+		if (fTempScore < fPoseScore)
+		{
+			fPoseScore = fTempScore;
+			pose_index = i;
+		}
+	}
+	cout << "The minimal pose score is: " << fPoseScore << endl;
+	ResultPose = Poses[pose_index];
+#ifdef SHOWIMG
+	m_SyncGenerator.SetReInitialize(true);
+	resultMat = GenerateARImg(ResultPose, m_CapImg);
+	imshow("Selected gened pose", resultMat);
+	waitKey(0);
+#endif
 	return ResultPose;
+}
+
+vector<cv::Mat> PoseEstimation::GenRotPoses(cv::Mat & IniPose, cv::Mat & VecNorm, float range, float degree)
+{
+	vector<cv::Mat> RotPoses;
+	int N = range / degree;
+
+	return RotPoses;
 }
 

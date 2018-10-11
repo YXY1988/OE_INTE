@@ -67,6 +67,8 @@ public:
 	void CalFinePoseBy3DIC41DOF(); //自己写 3D IC 的方法，git上 只有 2D IC
 	void CalFinePoseBy3DIC46DOF();
 	Mat SelectOptimalPose(vector<cv::Mat> & Poses, cv::Rect & rect, cv::Mat & CapRoi, int ErrMode = 2);
+	//在ini pose 附近 range 角度内以 degree 增量生成若干 Poses
+	vector<cv::Mat> GenRotPoses(cv::Mat & IniPose, cv::Mat & VecNorm, float range, float degree);
 
 	//Todo:可视化计算结果（这部分考虑放Validator里去）缺 quantitative data
 	void ShowARPoseResults();//Mode 3, 半透明 //这个已经实现了，show一下就好了，同时也可以save
