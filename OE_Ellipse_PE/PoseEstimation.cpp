@@ -311,7 +311,7 @@ void PoseEstimation::CalCoarsePoses(vector<cv::Mat>& ellMats)
 		1, 0, 0,
 		0, -1, 0,
 		0, 0, -1);
-
+	
 	cv::Mat Qone, ellMat, eig_Vector, eig_Value;
 	double lmd1, lmd2, lmd3, w;
 	cv::Mat Vmax, Vmin;
@@ -759,11 +759,35 @@ Mat PoseEstimation::SelectOptimalPose(vector<cv::Mat>& Poses, cv::Rect & rect, c
 	return ResultPose;
 }
 
-vector<cv::Mat> PoseEstimation::GenRotPoses(cv::Mat & IniPose, cv::Mat & VecNorm, float range, float degree)
+vector<cv::Mat> PoseEstimation::GenRotPoses(cv::Mat & IniPose, cv::Mat & VecNorm, float degree_range, float degree_step)
 {
-	vector<cv::Mat> RotPoses;
-	int N = range / degree;
+	if (IniPose.empty() || VecNorm.empty())
+	{
+		cout << "error IniPose or error VecNorm" << endl;
+	}
+	vector<cv::Mat> GenRotPoses;
+	cv::Mat RotMat,RotDegTemp,RotAfterMat;
+	cv::Mat TransVec,RowVec;
+	cv::Mat GenRotPose;
 
-	return RotPoses;
+	RotMat = IniPose(Range(0, 3), Range(0, 3));
+	TransVec = IniPose.col(3).clone();
+	RowVec = (cv::Mat_<double>(1, 3) << 0, 0, 0);
+	int N = degree_range / degree_step;
+	for (int i = 0; i < N; ++i)
+	{
+		float alpha = i * degree_step;
+		double cs = cos(alpha);
+		double ss = sin(alpha);
+		RotDegTemp = (cv::Mat_<double>(3, 3) <<
+			cs, -ss, 0,
+			0, ss, cs,
+			0, 0,  1);
+		RotAfterMat = RotMat * RotDegTemp;
+		vconcat(RotAfterMat, RowVec, GenRotPose);
+		hconcat(GenRotPose, TransVec, GenRotPose);
+		GenRotPoses.push_back(GenRotPose);
+	}
+	return GenRotPoses;
 }
 
