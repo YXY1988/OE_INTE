@@ -2,8 +2,8 @@
 #include <Eigen/Dense>
 #include <algorithm>
 #include <opencv2/core/eigen.hpp>
-//#define DETAIL
-//#define SHOWIMG
+#define DETAIL
+#define SHOWIMG
 
 PoseEstimation::PoseEstimation()
 {
@@ -399,7 +399,7 @@ void PoseEstimation::SelectCandidatePose(vector<cv::Mat>& CoarsePoses, vector<cv
 
 #ifdef SHOWIMG
 		imshow("current template", tmpl_full);
-		waitKey(0);
+		waitKey(50);
 #endif
 		ellRect = ellRects[i / 2];
 		CapRoi = m_CapImg(ellRect).clone();
@@ -681,27 +681,52 @@ void PoseEstimation::CalFinePoseBy3DIC41DOF()
 	cvtColor(Img_Real, Img_Real, CV_BGR2GRAY);
 	cvtColor(Img_Sync, Img_Sync, CV_BGR2GRAY);
 	cv::Rect temproi = m_CandidateRect;
-	Mat tmpl = Img_Sync(temproi).clone();
-	Mat image = Img_Real;
-
+	Mat tmplroi = Img_Sync(temproi).clone();
+	Mat imageroi = Img_Real(temproi).clone();
+	Mat temp_FinePose,temp_sync;
+	vector<cv::Mat> GenPoses;
 #pragma region CAL_BY_1D_ITER
 	//Todo: 1. 按照 1D Rotation Rz(theta) 计算 score, 求出 theta 的增量, 合成 temp_CamRelMat
 #pragma endregion CAL_BY_1D_ITER
 #pragma  region CAL_BY_STEP
 	//Todo: 2. 按照 score 收敛的变化量调整 theta 的步长，逐渐 choose best templates，比如 30度生成 12 个 templates，选最接近的，60度再生成 12 个 templates, 之后 10° 生成 10 个 templates,误差控制在1°
+	Mat NormVec_Z = (cv::Mat_<double>(1, 3) << 0, 0, 1);
+	GenPoses = GenRotPoses(m_CandidatePose,NormVec_Z,PI,PI/6);
+	temp_FinePose = SelectOptimalPose(GenPoses, temproi, imageroi);
+	Mat NormVec_X = (cv::Mat_<double>(1, 3) << 1, 0, 0);
+	GenPoses = GenRotPoses(temp_FinePose, NormVec_X, PI / 3, PI / 36);
+	temp_FinePose = SelectOptimalPose(GenPoses, temproi, imageroi);
+	GenPoses = GenRotPoses(temp_FinePose, NormVec_X, PI / 36, PI / 180);
+	temp_FinePose = SelectOptimalPose(GenPoses, temproi, imageroi);
+	Mat NormVec_Y = (cv::Mat_<double>(1, 3) << 0, 1, 0);
+	GenPoses = GenRotPoses(temp_FinePose, NormVec_Y, PI / 3, PI / 36);
+	temp_FinePose = SelectOptimalPose(GenPoses, temproi, imageroi);
+	GenPoses = GenRotPoses(temp_FinePose, NormVec_Y, PI / 36, PI / 180);
+	temp_FinePose = SelectOptimalPose(GenPoses, temproi, imageroi);
+	//z 轴优化放到前面也可以，放到最后也可以
+	GenPoses = GenRotPoses(temp_FinePose, NormVec_Z, PI / 3, PI / 36);
+	temp_FinePose = SelectOptimalPose(GenPoses, temproi, imageroi);
+	GenPoses = GenRotPoses(temp_FinePose, NormVec_Z, PI / 36, PI / 180);
+	temp_FinePose = SelectOptimalPose(GenPoses, temproi, imageroi);
+
 #pragma  endregion CAL_BY_STEP
 	//Todo: 3. 配置 Release 加快试验速度
-
-	Mat temp_FinePose, temp_CamRelMat;
-	temp_FinePose = m_CandidatePose * (temp_CamRelMat.inv());
-	Mat CapRoi = Img_Real(temproi).clone();
-	Mat TmplRoi = Img_Sync(temproi).clone();
+	m_SyncGenerator.SetReInitialize(true);
+	temp_sync = GenerateTemplateImg(temp_FinePose);
+	cvtColor(temp_sync, temp_sync, CV_BGR2GRAY);
+	Mat CapRoi = imageroi;
+	Mat TmplRoi = temp_sync(temproi).clone();
 	float fineScore = CalImgErrorByGF(CapRoi, TmplRoi);
 	cout << "The minimal fine pose score is: " << fineScore << endl;
 	m_FinePose = temp_FinePose;
 	cout << "The fine pose is: " << endl << m_FinePose << endl;
+	
+#ifdef SHOWIMG
 	m_SyncGenerator.SetReInitialize(true);
 	m_FineImg = GenerateARImg(m_FinePose, m_CapImg);
+	imshow("Final optimized 1D rot pose", m_FineImg);
+	waitKey(0);
+#endif
 }
 
 Mat PoseEstimation::SelectOptimalPose(vector<cv::Mat>& Poses, cv::Rect & rect, cv::Mat & CapRoi, int ErrMode)
@@ -751,10 +776,10 @@ Mat PoseEstimation::SelectOptimalPose(vector<cv::Mat>& Poses, cv::Rect & rect, c
 	cout << "The minimal pose score is: " << fPoseScore << endl;
 	ResultPose = Poses[pose_index];
 #ifdef SHOWIMG
-	m_SyncGenerator.SetReInitialize(true);
-	resultMat = GenerateARImg(ResultPose, m_CapImg);
-	imshow("Selected gened pose", resultMat);
-	waitKey(0);
+// 	m_SyncGenerator.SetReInitialize(true);
+// 	resultMat = GenerateARImg(ResultPose, m_CapImg);
+// 	imshow("Selected gened pose", resultMat);
+// 	waitKey(0);
 #endif
 	return ResultPose;
 }
@@ -773,16 +798,34 @@ vector<cv::Mat> PoseEstimation::GenRotPoses(cv::Mat & IniPose, cv::Mat & VecNorm
 	RotMat = IniPose(Range(0, 3), Range(0, 3));
 	TransVec = IniPose.col(3).clone();
 	RowVec = (cv::Mat_<double>(1, 3) << 0, 0, 0);
-	int N = degree_range / degree_step;
+	int N = ceil( degree_range / degree_step);
+	int M = ceil(N / 2);
 	for (int i = 0; i < N; ++i)
 	{
-		float alpha = i * degree_step;
+		float alpha = i * degree_step-M*degree_step;
 		double cs = cos(alpha);
 		double ss = sin(alpha);
-		RotDegTemp = (cv::Mat_<double>(3, 3) <<
-			cs, -ss, 0,
-			0, ss, cs,
-			0, 0,  1);
+		if (VecNorm.at<double>(0, 2) == 1)
+		{
+			RotDegTemp = (cv::Mat_<double>(3, 3) <<
+				cs, -ss, 0,
+				ss, cs, 0,
+				0, 0, 1);
+		}
+		if (VecNorm.at<double>(0, 0) == 1)
+		{
+			RotDegTemp = (cv::Mat_<double>(3, 3) <<
+				1, 0, 0,
+				0, cs, -ss,
+				0, ss, cs);
+		}
+		if (VecNorm.at<double>(0, 1) == 1)
+		{
+			RotDegTemp = (cv::Mat_<double>(3, 3) <<
+				cs, 0, ss,
+				0, 1 , 0,
+				-ss, 0, cs);
+		}
 		RotAfterMat = RotMat * RotDegTemp;
 		vconcat(RotAfterMat, RowVec, GenRotPose);
 		hconcat(GenRotPose, TransVec, GenRotPose);
