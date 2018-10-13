@@ -46,6 +46,8 @@ public:
 	void SetFinePose(cv::Mat val) { m_FinePose = val; }
 	cv::Mat GetFineImg() const { return m_FineImg; }
 	void SetFineImg(cv::Mat val) { m_FineImg = val; }
+	SceneGenerator GetARGenerator() const { return m_ARGenerator; }
+	void SetARGenerator(SceneGenerator val) { m_ARGenerator = val; }
 public:
 	//初始化模型和相机内参数信息，不要在计算过程中反复加载。pose 和 bg Img 是变数，不加载。
 	void Initialize(cv::Mat & Intrinsic, string & ModelPath, float & ModelRadius, cv::Mat & ObjectTransform);
@@ -84,6 +86,7 @@ private:
 	float m_ModelRadius;//3D模型直径，用于计算Coarse
 	cv::Mat m_ObjectTransform;//3D模型绕自身的变换，与建模有关
 	SceneGenerator m_SyncGenerator;//图像合成类
+	SceneGenerator m_ARGenerator;
 
 	cv::Mat m_TmplImg;//合成的模板图像
 	vector<cv::Mat> m_coarsePoses;

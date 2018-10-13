@@ -2,8 +2,8 @@
 #include <Eigen/Dense>
 #include <algorithm>
 #include <opencv2/core/eigen.hpp>
-#define DETAIL
-#define SHOWIMG
+//#define DETAIL
+//#define SHOWIMG
 
 PoseEstimation::PoseEstimation()
 {
@@ -26,6 +26,10 @@ void PoseEstimation::Initialize(cv::Mat & Intrinsic, string & ModelPath, float &
 	m_SyncGenerator.SetCameraIntrinsic(Intrinsic);
 	m_SyncGenerator.SetModelName(m_ModelName);
 	m_SyncGenerator.SetObjectSelfTransform(m_ObjectTransform);
+
+	m_ARGenerator.SetCameraIntrinsic(Intrinsic);
+	m_ARGenerator.SetModelName(m_ModelName);
+	m_ARGenerator.SetObjectSelfTransform(m_ObjectTransform);
 }
 
 cv::Mat PoseEstimation::GenerateTemplateImg(cv::Mat & pose)
@@ -44,12 +48,12 @@ cv::Mat PoseEstimation::GenerateARImg(cv::Mat & pose, cv::Mat & bgImg)
 {
 	cv::Mat result;
 	cv::Mat OsgPoseMat = pose.t();
-	m_SyncGenerator.SetPoseMat(OsgPoseMat);
-	m_SyncGenerator.SetUseImgBgFlag(true);
-	m_SyncGenerator.SetBgImgMat(bgImg);
-	m_SyncGenerator.SetUseTransparent(true);
-	m_SyncGenerator.SetUseWireframe(true);
-	result = m_SyncGenerator.GetSyntheticImg();
+	m_ARGenerator.SetPoseMat(OsgPoseMat);
+	m_ARGenerator.SetUseImgBgFlag(true);
+	m_ARGenerator.SetBgImgMat(bgImg);
+	m_ARGenerator.SetUseTransparent(true);
+	m_ARGenerator.SetUseWireframe(true);
+	result = m_ARGenerator.GetSyntheticImg();
 	return result;
 }
 
@@ -291,6 +295,7 @@ float PoseEstimation::CalImgErrorByDF(cv::Mat & m_CapImg, cv::Mat & m_TmplImg)
 
 void PoseEstimation::CalCoarsePoses(vector<cv::Mat>& ellMats)
 {
+	m_coarsePoses.clear();
 	if (ellMats.size() < 1)
 	{
 		cout << "No ellipse param for cal coarse pose" << endl;
@@ -384,7 +389,7 @@ void PoseEstimation::SelectCandidatePose(vector<cv::Mat>& CoarsePoses, vector<cv
 	cv::Mat CapRoi;
 	cv::Mat TmplRoi;
 	int pose_index;
-	m_SyncGenerator.SetReInitialize(true);
+	//m_SyncGenerator.SetReInitialize(true);
 
 	if (CoarsePoses.size() == 0 || ellRects.size() == 0)
 	{
@@ -432,7 +437,7 @@ void PoseEstimation::SelectCandidatePose(vector<cv::Mat>& CoarsePoses, vector<cv
 	cout << "The minimal candidate pose score is: " << fPoseScore << endl;
 	m_CandidatePose = CoarsePoses[pose_index];
 	m_CandidateRect = ellRects[pose_index/2];
-	m_SyncGenerator.SetReInitialize(true);
+	//m_SyncGenerator.SetReInitialize(true);
 	m_TmplImg = GenerateTemplateImg(m_CandidatePose);
 	m_iCandidateEllIndex = pose_index / 2;
 
@@ -711,19 +716,21 @@ void PoseEstimation::CalFinePoseBy3DIC41DOF()
 
 #pragma  endregion CAL_BY_STEP
 	//Todo: 3. 配置 Release 加快试验速度
-	m_SyncGenerator.SetReInitialize(true);
+	
+#ifdef DETAIL
 	temp_sync = GenerateTemplateImg(temp_FinePose);
 	cvtColor(temp_sync, temp_sync, CV_BGR2GRAY);
 	Mat CapRoi = imageroi;
 	Mat TmplRoi = temp_sync(temproi).clone();
 	float fineScore = CalImgErrorByGF(CapRoi, TmplRoi);
 	cout << "The minimal fine pose score is: " << fineScore << endl;
+#endif
 	m_FinePose = temp_FinePose;
 	cout << "The fine pose is: " << endl << m_FinePose << endl;
+	m_ARGenerator.SetReInitialize(true);
+	m_FineImg = GenerateARImg(m_FinePose, m_CapImg);
 	
 #ifdef SHOWIMG
-	m_SyncGenerator.SetReInitialize(true);
-	m_FineImg = GenerateARImg(m_FinePose, m_CapImg);
 	imshow("Final optimized 1D rot pose", m_FineImg);
 	waitKey(0);
 #endif
@@ -740,7 +747,7 @@ Mat PoseEstimation::SelectOptimalPose(vector<cv::Mat>& Poses, cv::Rect & rect, c
 	float fPoseScore = 50.0;
 	float fTempScore = 50.0;
 	int pose_index = 0;
-	m_SyncGenerator.SetReInitialize(true);
+	//m_SyncGenerator.SetReInitialize(true);
 	for (int i = 0; i < Poses.size(); ++i)
 	{
 		tmpl_full = GenerateTemplateImg(Poses[i]);
@@ -773,7 +780,9 @@ Mat PoseEstimation::SelectOptimalPose(vector<cv::Mat>& Poses, cv::Rect & rect, c
 			pose_index = i;
 		}
 	}
+#ifdef DETAIL
 	cout << "The minimal pose score is: " << fPoseScore << endl;
+#endif
 	ResultPose = Poses[pose_index];
 #ifdef SHOWIMG
 // 	m_SyncGenerator.SetReInitialize(true);
@@ -800,6 +809,7 @@ vector<cv::Mat> PoseEstimation::GenRotPoses(cv::Mat & IniPose, cv::Mat & VecNorm
 	RowVec = (cv::Mat_<double>(1, 3) << 0, 0, 0);
 	int N = ceil( degree_range / degree_step);
 	int M = ceil(N / 2);
+#pragma omp parallel for
 	for (int i = 0; i < N; ++i)
 	{
 		float alpha = i * degree_step-M*degree_step;
