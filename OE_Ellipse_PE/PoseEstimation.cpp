@@ -3,7 +3,7 @@
 #include <algorithm>
 #include <opencv2/core/eigen.hpp>
 //#define DETAIL
-//#define SHOWIMG
+#define SHOWIMG
 
 PoseEstimation::PoseEstimation()
 {

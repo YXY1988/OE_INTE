@@ -686,13 +686,13 @@ void RunAllTests()
 		TestKpsHomoFinePose();
 		cout << ".....................ok" << endl;*/
 
-		/*cout << "TestRotIterFinePose()......" << endl;
+		cout << "TestRotIterFinePose()......" << endl;
 		TestRotIterFinePose();
-		cout << ".....................ok" << endl;*/
-
-		cout << "TestRotIterFinePoseVideo()......" << endl;
-		TestRotIterFinePoseVideo();
 		cout << ".....................ok" << endl;
+
+		/*cout << "TestRotIterFinePoseVideo()......" << endl;
+		TestRotIterFinePoseVideo();
+		cout << ".....................ok" << endl;*/
 	}
 
 	catch (char const* message)
