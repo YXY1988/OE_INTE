@@ -89,8 +89,8 @@
     <TargetName>$(ProjectName)d</TargetName>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">
-    <IncludePath>d:\SDKs\OpenCV2413\build\include;d:\SDKs\OpenCV2413\build\include\opencv;d:\SDKs\OpenCV2413\build\include\opencv2;d:\SDKs\Eigen3;$(IncludePath)</IncludePath>
-    <LibraryPath>d:\SDKs\OpenCV2413\build\x86\vc14\lib;$(LibraryPath)</LibraryPath>
+    <IncludePath>d:\SDKs\Eigen3;d:\SDKs\OpenCV342\build\install\include;d:\SDKs\OpenCV342\build\install\include\opencv;d:\SDKs\OpenCV342\build\install\include\opencv2;d:\SDKs\ARTK5_vs17_x86\include;d:\SDKs\OSG360_VS15_X86\include;$(IncludePath)</IncludePath>
+    <LibraryPath>d:\SDKs\OpenCV342\build\install\x86\vc15\lib;d:\SDKs\OSG360_VS15_X86\lib;d:\SDKs\ARTK5_vs17_x86\lib;$(LibraryPath)</LibraryPath>
   </PropertyGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">
     <ClCompile>
@@ -117,7 +117,7 @@
       <IntrinsicFunctions>true</IntrinsicFunctions>
       <SDLCheck>true</SDLCheck>
       <ConformanceMode>true</ConformanceMode>
-      <PreprocessorDefinitions>_CRT_SECURE_NO_WARNINGS;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <PreprocessorDefinitions>WIN32;_CRT_SECURE_NO_WARNINGS;NOMINMAX;%(PreprocessorDefinitions)</PreprocessorDefinitions>
     </ClCompile>
     <Link>
       <EnableCOMDATFolding>true</EnableCOMDATFolding>

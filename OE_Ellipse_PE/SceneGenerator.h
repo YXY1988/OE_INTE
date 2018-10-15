@@ -37,7 +37,7 @@ public:
 	std::string GetBgImgName() const { return m_BgImgName; }
 	void SetBgImgName(std::string val) { m_BgImgName = val; }
 	cv::Mat GetBgImgMat() const { return m_BgImgMat; }
-	void SetBgImgMat(cv::Mat val) { m_BgImgMat = val; }
+	void SetBgImgMat(cv::Mat val); 
 	bool GetUseImgBgFlag() const { return m_bUseImgBg; }
 	void SetUseImgBgFlag(bool val) { m_bUseImgBg = val; }
 

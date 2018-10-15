@@ -492,6 +492,139 @@ void TestKpsHomoFinePose()
 #endif // VERBOSE
 }
 
+void TestRotIterFinePose()
+{
+	cv::Mat testimg = cv::imread("../../Data/INTE/realsrc.jpg");
+	//cv::Mat testimg = cv::imread("../../Data/INTE/coarse1.png");
+	cv::Mat test, contour, temp, result;
+	vector<vector<cv::Point>> edges;
+	EdgeDetection _EdgeDetector;
+	EllipseDetection _EllipseDetector;
+	vector<ElliFit::Ellipse> ellResult;
+	vector<cv::Mat> ellMats;
+	vector<cv::Rect> ellRects;
+
+	test = testimg.clone();
+	_EdgeDetector.SetSrcImg(test);
+	contour = _EdgeDetector.CannyContourDetection(50, 150);
+
+	temp = contour.clone();
+	temp = _EdgeDetector.FilterTurning(temp, 5);
+	temp = _EdgeDetector.FilterLines(temp);
+	temp = _EdgeDetector.FilterLength(temp, 10);
+	edges = _EdgeDetector.GetFinalContours();
+
+	_EllipseDetector.SetSrcImg(test);
+	_EllipseDetector.SetFilter_radius(100.);//100
+	_EllipseDetector.DetectEllipses(temp, edges);
+
+	ellResult = _EllipseDetector.GetEllDetectionResult();
+	ellMats = _EllipseDetector.GetEllMatResult();
+	ellRects = _EllipseDetector.GetEllRects();
+
+	//Ini Pose Estimator
+	PoseEstimation CTestFine;
+	cv::Mat Intrinsic = (cv::Mat_<double>(3, 3) << 827.50897692124522, 0, 299.60111699063754,
+		0, 814.73836342732341, 256.75622898129393, 0, 0, 1);
+	string IveModelName = "../Data/Temp/cylinder.ive";
+	float modelRadius = 178;
+	cv::Mat ObjectTransform = (cv::Mat_<double>(4, 4) << -1, 0, 0, 0,
+		0, 1, 0, 0,
+		0, 0, -1, 0,
+		0, 0, 0, 1);
+	CTestFine.Initialize(Intrinsic, IveModelName, modelRadius, ObjectTransform);
+
+	//Get vector<Mat> CoarsePoses
+	vector<cv::Mat> CoarsePoses;
+	CTestFine.CalCoarsePoses(ellMats);
+	CoarsePoses = CTestFine.GetCoarsePoses();
+
+	//Select CandidatePose using default gradient mode
+	CTestFine.SetCapImg(testimg);
+	CTestFine.SelectCandidatePose(CoarsePoses, ellRects);
+	cout << "The candidate ell's index is: " << CTestFine.GetCandidateEllIndex() << endl;
+	cout << "The candidate pose matrix is: " << endl << CTestFine.GetCandidatePose() << endl;
+
+	//Cal Fine pose and show AR Registered img
+	CTestFine.CalFinePoseBy3DIC41DOF();
+#ifdef VERBOSE
+	cv::Mat FineARImg;
+	FineARImg = CTestFine.GetFineImg();
+	imshow("fine", FineARImg);
+	waitKey(0);
+#endif // VERBOSE
+}
+
+void TestRotIterFinePoseVideo()
+{
+	VideoCapture cap;
+	cv::Mat testimg,FineARImg;
+	cv::Mat test, contour, temp, result;
+	vector<vector<cv::Point>> edges;
+	EdgeDetection _EdgeDetector;
+	EllipseDetection _EllipseDetector;
+	vector<ElliFit::Ellipse> ellResult;
+	vector<cv::Mat> ellMats;
+	vector<cv::Rect> ellRects;
+	cv::namedWindow("fine", CV_WINDOW_NORMAL);
+
+	//Ini Pose Estimator
+	PoseEstimation CTestFine;
+	cv::Mat Intrinsic = (cv::Mat_<double>(3, 3) << 827.50897692124522, 0, 299.60111699063754,
+		0, 814.73836342732341, 256.75622898129393, 0, 0, 1);
+	string IveModelName = "../Data/Temp/cylinder.ive";
+	float modelRadius = 178;
+	cv::Mat ObjectTransform = (cv::Mat_<double>(4, 4) << -1, 0, 0, 0,
+		0, 1, 0, 0,
+		0, 0, -1, 0,
+		0, 0, 0, 1);
+	CTestFine.Initialize(Intrinsic, IveModelName, modelRadius, ObjectTransform);
+
+	cap.open("../Data/vid/SimpleBright.wmv");
+	while (cap.isOpened())
+	{
+		cap >> testimg;
+		test = testimg.clone();
+		_EdgeDetector.SetSrcImg(test);
+		contour = _EdgeDetector.CannyContourDetection(50, 150);
+
+		temp = contour.clone();
+		temp = _EdgeDetector.FilterTurning(temp, 5);
+		temp = _EdgeDetector.FilterLines(temp);
+		temp = _EdgeDetector.FilterLength(temp, 10);
+		edges = _EdgeDetector.GetFinalContours();
+
+		_EllipseDetector.SetSrcImg(test);
+		_EllipseDetector.SetFilter_radius(100.);//100
+		_EllipseDetector.DetectEllipses(temp, edges);
+
+		ellResult = _EllipseDetector.GetEllDetectionResult();
+		ellMats = _EllipseDetector.GetEllMatResult();
+		ellRects = _EllipseDetector.GetEllRects();
+		if(ellResult.size()==0)
+			continue;
+		//Get vector<Mat> CoarsePoses
+		vector<cv::Mat> CoarsePoses;
+		CTestFine.CalCoarsePoses(ellMats);
+		CoarsePoses = CTestFine.GetCoarsePoses();
+
+		//Select CandidatePose using default gradient mode
+		CTestFine.SetCapImg(testimg);
+		CTestFine.SelectCandidatePose(CoarsePoses, ellRects);
+		CTestFine.CalFinePoseBy3DIC41DOF();
+
+		//CTestFine.GetARGenerator().SetReInitialize(true);
+		CTestFine.GetARGenerator().SetBgImgMat(testimg);
+		FineARImg = CTestFine.GetFineImg();
+		imshow("fine", FineARImg);
+		waitKey(10);
+	}
+#ifdef VERBOSE
+	cout << "The candidate ell's index is: " << CTestFine.GetCandidateEllIndex() << endl;
+	cout << "The candidate pose matrix is: " << endl << CTestFine.GetCandidatePose() << endl;
+#endif // VERBOSE
+}
+
 void RunAllTests()
 {
 	cv::Mat testimg = cv::imread("../Data/ellfigure/test38.jpg");
@@ -545,12 +678,20 @@ void RunAllTests()
 		TestSelectCandidatePose();
 		cout << ".....................ok" << endl;*/
 
-		cout << "TestEPFLHomoFinePose()......" << endl;
+		/*cout << "TestEPFLHomoFinePose()......" << endl;
 		TestEPFLHomoFinePose();
-		cout << ".....................ok" << endl;	
+		cout << ".....................ok" << endl;	*/
 
 		/*cout << "TestKpsHomoFinePose()......" << endl;
 		TestKpsHomoFinePose();
+		cout << ".....................ok" << endl;*/
+
+		cout << "TestRotIterFinePose()......" << endl;
+		TestRotIterFinePose();
+		cout << ".....................ok" << endl;
+
+		/*cout << "TestRotIterFinePoseVideo()......" << endl;
+		TestRotIterFinePoseVideo();
 		cout << ".....................ok" << endl;*/
 	}
 

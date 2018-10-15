@@ -10,6 +10,11 @@ SceneGenerator::~SceneGenerator()
 {
 }
 
+void SceneGenerator::SetBgImgMat(cv::Mat val)
+{
+	m_BgImgMat = val.clone();
+}
+
 
 void SceneGenerator::SetViewerSize(int width, int height)
 {
