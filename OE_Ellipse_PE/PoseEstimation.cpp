@@ -16,7 +16,7 @@ PoseEstimation::~PoseEstimation()
 
 void PoseEstimation::Initialize(cv::Mat & Intrinsic, string & ModelPath, float & ModelRadius, cv::Mat & ObjectTransform)
 {
-	surf = SURF::create();
+	//surf = SURF::create(); //TODO:替换实验室后来编译的OpenCV342库才能用
 	m_Intrinsic = Intrinsic;
 	m_ModelName = ModelPath;
 	m_ModelRadius = ModelRadius;
@@ -843,4 +843,5 @@ vector<cv::Mat> PoseEstimation::GenRotPoses(cv::Mat & IniPose, cv::Mat & VecNorm
 	}
 	return GenRotPoses;
 }
+
 

@@ -494,8 +494,8 @@ void TestKpsHomoFinePose()
 
 void TestRotIterFinePose()
 {
-	cv::Mat testimg = cv::imread("../../Data/INTE/realsrc.jpg");
-	//cv::Mat testimg = cv::imread("../../Data/INTE/coarse1.png");
+	//cv::Mat testimg = cv::imread("../../Data/INTE/realsrc.jpg");
+	cv::Mat testimg = cv::imread("../Data/Temp/SB_test120.bmp");
 	cv::Mat test, contour, temp, result;
 	vector<vector<cv::Point>> edges;
 	EdgeDetection _EdgeDetector;
