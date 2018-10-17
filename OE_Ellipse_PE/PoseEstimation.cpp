@@ -16,7 +16,7 @@ PoseEstimation::~PoseEstimation()
 
 void PoseEstimation::Initialize(cv::Mat & Intrinsic, string & ModelPath, float & ModelRadius, cv::Mat & ObjectTransform)
 {
-	//surf = SURF::create(); //TODO:替换实验室后来编译的OpenCV342库才能用
+	surf = SURF::create(); //TODO:替换实验室后来编译的OpenCV342库才能用
 	m_Intrinsic = Intrinsic;
 	m_ModelName = ModelPath;
 	m_ModelRadius = ModelRadius;
@@ -842,6 +842,47 @@ vector<cv::Mat> PoseEstimation::GenRotPoses(cv::Mat & IniPose, cv::Mat & VecNorm
 		GenRotPoses.push_back(GenRotPose);
 	}
 	return GenRotPoses;
+}
+
+void PoseEstimation::Cal6DPoseError(cv::Mat & Pose_gt, cv::Mat & Pose_est, ofstream & ofile, bool isWrite)
+{
+	double err_tx, err_ty, err_tz, err_rx, err_ry, err_rz;
+	Mat Trans_gt = Pose_gt(Range(0, 3), Range(3, 4));
+	Mat Rot_gt = Pose_gt(Range(0, 3), Range(0, 3));
+	Mat Trans_est = Pose_est(Range(0, 3), Range(3, 4));
+	Mat Rot_est = Pose_est(Range(0, 3), Range(0, 3));
+	Mat Rx_est = Rot_est.col(0);
+	Mat Ry_est = Rot_est.col(1);
+	Mat Rz_est = Rot_est.col(2);
+	Mat Rx_gt = Rot_gt.col(0);
+	Mat Ry_gt = Rot_gt.col(1);
+	Mat Rz_gt = Rot_gt.col(2);
+	cv::normalize(Rx_est, Rx_est);
+	cv::normalize(Ry_est, Ry_est);
+	cv::normalize(Rz_est, Rz_est);
+	cv::normalize(Rx_gt, Rx_gt);
+	cv::normalize(Ry_gt, Ry_gt);
+	cv::normalize(Rz_gt, Rz_gt);
+	Mat TransErr = Trans_gt - Trans_est;
+	err_tx = TransErr.at<double>(0, 0);
+	err_ty = TransErr.at<double>(0, 0);
+	err_tz = TransErr.at<double>(0, 0);
+	double test = Rx_gt.dot(Rx_est);
+	err_rx = acos((Rx_gt.dot(Rx_est)));
+	err_ry = acos(Ry_gt.dot(Ry_est));
+	err_rz = acos(Rz_gt.dot(Rz_est));
+	double err_rx_d = rad2degree(err_rx);
+	double err_ry_d = rad2degree(err_ry);
+	double err_rz_d = rad2degree(err_rz);
+	cout << "the trans error is: " << err_tx << ","<<err_ty << ","
+	     	<<err_tz << endl;
+	cout << "the rotation error is: " << err_rx_d << "," << err_ry_d << ","
+		<< err_rz_d << endl;
+	if (isWrite == true && ofile)
+	{
+		ofile << err_tx << ',' << err_ty << ',' << err_tz << ','
+			<< err_rx_d << ',' << err_ry_d << ',' << err_rz_d << endl;
+	}
 }
 
 

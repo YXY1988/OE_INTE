@@ -494,8 +494,8 @@ void TestKpsHomoFinePose()
 
 void TestRotIterFinePose()
 {
-	//cv::Mat testimg = cv::imread("../../Data/INTE/realsrc.jpg");
-	cv::Mat testimg = cv::imread("../Data/Temp/SB_test120.bmp");
+	//cv::Mat testimg = cv::imread("../Data/Temp/SB_test120.bmp");
+	cv::Mat testimg = cv::imread("../Data/coarse2.png");
 	cv::Mat test, contour, temp, result;
 	vector<vector<cv::Point>> edges;
 	EdgeDetection _EdgeDetector;
@@ -625,6 +625,25 @@ void TestRotIterFinePoseVideo()
 #endif // VERBOSE
 }
 
+void TestCal6DPoseError()
+{
+	ofstream outfile;
+	outfile.open("../Output/savedata.csv");
+	outfile << "tx" << ',' << "ty" << ',' << "tz" << ','
+		<< "rx" << ',' << "ry" << ',' << "rz" << endl;
+	Mat test_gt = (cv::Mat_<double>(4, 4) << 0.3929252092290151, 0.8621589373979998, -0.3198308093618978, 127.9172690262129,
+	-0.91957043229561, 0.3683937292547413, -0.1366611879556503, 60.04240737299161,
+	0, 0.3478045814973347, 0.9375670499166787, -871.9922573477522,
+	0, 0, 0, 1);
+	Mat test_est = (cv::Mat_<double>(4, 4) << 0.3721778266686779, 0.868786669052228, -0.3266395925573681, 127.9172690262129,
+	-0.9281044312317063, 0.352249729216505, -0.1205916595269381, 60.04240737299161,
+	0.0102902820154755, 0.3480371846190551, 0.9374242679549672, -871.9922573477522,
+	0, 0, 0, 1);
+	PoseEstimation validator;
+	validator.Cal6DPoseError(test_gt, test_est, outfile, true);
+	outfile.close();
+}
+
 void RunAllTests()
 {
 	cv::Mat testimg = cv::imread("../Data/ellfigure/test38.jpg");
@@ -686,13 +705,17 @@ void RunAllTests()
 		TestKpsHomoFinePose();
 		cout << ".....................ok" << endl;*/
 
-		cout << "TestRotIterFinePose()......" << endl;
+		/*cout << "TestRotIterFinePose()......" << endl;
 		TestRotIterFinePose();
-		cout << ".....................ok" << endl;
+		cout << ".....................ok" << endl;*/
 
 		/*cout << "TestRotIterFinePoseVideo()......" << endl;
 		TestRotIterFinePoseVideo();
 		cout << ".....................ok" << endl;*/
+
+		cout << "TestCal6DPoseError()......" << endl;
+		TestCal6DPoseError();
+		cout << ".....................ok" << endl;
 	}
 
 	catch (char const* message)

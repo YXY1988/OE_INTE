@@ -6,6 +6,7 @@
 #include "HomographyEstimation.hpp"
 //#include "kpshomography.h"
 #include "opencv2/xfeatures2d/nonfree.hpp"
+#include "EdgeDetection.h"
 #include <math.h>
 
 #define PI 3.1415926
@@ -77,8 +78,8 @@ public:
 	//Todo:可视化计算结果（这部分考虑放Validator里去）缺 quantitative data
 	void ShowARPoseResults();//Mode 3, 半透明 //这个已经实现了，show一下就好了，同时也可以save
 	void ShowMethodDifference();//Mode 4 暂且不整合两个object线框，把以前PPT的当作qualitative results放上去 视频输出 6DOF error，Image GF error
-	void Cal6DPoseError(cv::Mat & Pose_gt, cv::Mat & Pose_res, String SaveFilePath, bool isWrite = true);
-
+	void Cal6DPoseError(cv::Mat & Pose_gt, cv::Mat & Pose_res, ofstream & ofile,  bool isWrite = true);
+	
 private:
 	cv::Mat m_CapImg;//输入源图像,可以是普通图像，也可以是校正后的图像
 	cv::Mat m_UndistortImg;//畸变校正后的原图像
