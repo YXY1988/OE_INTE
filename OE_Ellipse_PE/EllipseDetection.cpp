@@ -311,7 +311,7 @@ namespace ElliFit {
 			
 			//double FlatRate = tempell.majorRadius / tempell.minorRadius;
 			if(tempell.residue>0.1||isnan(tempell.residue)
-				||bIsEll==false||bIsPtEnough==false||tempell.majorRadius<filter_radius
+				||bIsEll==false||bIsPtEnough==false||tempell.minorRadius<100
 				/*||tempell.majorRadius<10*/)
 				continue;
 			else
@@ -319,15 +319,16 @@ namespace ElliFit {
 #ifdef DETAIL
 				cout << "Groupedres = " << tempell.residue << endl;
 #endif
-				if (tempell.majorRadius < tempMajorRadius)
-					continue;
-				else
-				{
-					tempMajorRadius = tempell.majorRadius;
+// 				if (tempell.majorRadius < tempMajorRadius)
+// 					continue;
+// 				else
+// 				{
+// 					tempMajorRadius = tempell.majorRadius;
 					rotrect.center = cv::Point(tempell.ellipseCentroid.x, tempell.ellipseCentroid.y);
 					rotrect.angle = static_cast<float>(RAD2DEG * tempell.orientationAngle);
 					rotrect.size.width = static_cast<float>(2 * tempell.majorRadius);
 					rotrect.size.height = static_cast<float>(2 * tempell.minorRadius);
+					ellipse(m_SrcImg, rotrect, cv::Scalar(0, 255, 0), 2, 8);
 					tempRect = rotrect.boundingRect();
 					if (tempRect.x < 0)
 						tempRect.x = 0;
@@ -349,14 +350,16 @@ namespace ElliFit {
 					cout << "rotrect angle is: " << rotrect.angle << endl;
 					cout << "rotrect size is: " << rotrect.size << endl;
 					cout << "Ell mat is: " << endl << m_tempell << endl;
+#endif
 					ellipse(m_SrcImg, rotrect, cv::Scalar(0, 255, 0), 2, 8);
 					cv::imshow("GroupedFinal", m_SrcImg);
 					cv::waitKey(50);
-#endif
+					imwrite("../Data/Out/Ellipse.jpg", m_SrcImg);
+
 					
 					/*cv::imwrite("../Data/ellfigure/groupedfinal.jpg", m_SrcImg);
 					cv::waitKey(50);*/
-				}
+				/*}*/
 			}
 		}
 		if (GroupedElls.size() > 3)
@@ -407,7 +410,8 @@ namespace ElliFit {
 		double avrdist = 0;
 		double maxdist = 0;
 		DistContourToEll(pts, m_ell, avrdist, maxdist);
-		if (avrdist < 0.5&&maxdist < 1.5)
+		//if (avrdist < 0.5&&maxdist < 1.5)
+		if (avrdist < 2.5&&maxdist < 5.0)
 		{
 			IsEll = true;
  			/*cout << "·ûºÏavrºÍmaxÔ¼Êø£º " << endl;

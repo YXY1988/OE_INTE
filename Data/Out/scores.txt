@@ -1,0 +1,11 @@
+test7      0.298605
+SB_TEST120 0.329705 
+3          0.274962
+65         0.314385 //fine z全用2，xy用3, candidate用1
+233        0.293745 //pose index =0
+dark 6     0.322298
+dark
+dark
+dark 115   0.282456
+occlusion181  0.335297
+occlusion189  0.368306

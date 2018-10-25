@@ -1,6 +1,7 @@
 #include "UnitTest.h"
 #include "commonlibs.h"
-#define VERBOSE
+//#define VERBOSE
+#define SAVEDATA
 /*
 void CVCalibTest()
 {
@@ -131,6 +132,14 @@ void TestCoarsePose()
 	CTestCoarse.SetIntrinsic(Intrinsic);
 	CTestCoarse.SetModelRadius(178);
 	CTestCoarse.CalCoarsePoses(ellMats);
+	
+	//2018ƒÍ10‘¬25»’ ≤‚ ‘ Mat ∂¡–¥
+	string savefilename = "../Data/Out/testcoarsepose.txt";
+	vector<cv::Mat> PoseMats = CTestCoarse.GetCoarsePoses();
+	cv::Mat result = PoseMats[0];
+	WriteCVPoseMatToFile(savefilename, result);
+	cv::Mat read = ReadCVPoseMatFromFile(savefilename);
+	cout << "successful R and W: " <<endl << read << endl;
 	return;
 }
 
@@ -494,8 +503,8 @@ void TestKpsHomoFinePose()
 
 void TestRotIterFinePose()
 {
-	//cv::Mat testimg = cv::imread("../Data/Temp/SB_test120.bmp");
-	cv::Mat testimg = cv::imread("../Data/coarse2.png");
+	cv::Mat testimg = cv::imread("../Data/SampleImages/ComplexBright/test189.jpg");
+	//cv::Mat testimg = cv::imread("../Data/coarse2.png");
 	cv::Mat test, contour, temp, result;
 	vector<vector<cv::Point>> edges;
 	EdgeDetection _EdgeDetector;
@@ -539,20 +548,36 @@ void TestRotIterFinePose()
 	CTestFine.CalCoarsePoses(ellMats);
 	CoarsePoses = CTestFine.GetCoarsePoses();
 
+	if (CoarsePoses.size() == 0)
+		return;
 	//Select CandidatePose using default gradient mode
 	CTestFine.SetCapImg(testimg);
-	CTestFine.SelectCandidatePose(CoarsePoses, ellRects);
+	CTestFine.SelectCandidatePose(CoarsePoses, ellRects,2);
 	cout << "The candidate ell's index is: " << CTestFine.GetCandidateEllIndex() << endl;
 	cout << "The candidate pose matrix is: " << endl << CTestFine.GetCandidatePose() << endl;
 
 	//Cal Fine pose and show AR Registered img
 	CTestFine.CalFinePoseBy3DIC41DOF();
-#ifdef VERBOSE
+
+//#ifdef VERBOSE
 	cv::Mat FineARImg;
 	FineARImg = CTestFine.GetFineImg();
 	imshow("fine", FineARImg);
-	waitKey(0);
-#endif // VERBOSE
+	waitKey(50);
+//#endif // VERBOSE
+
+#ifdef SAVEDATA
+	string saveImgName = "../Data/Out/FineAR.jpg";
+	string saveSrcName = "../Data/Out/SrcImg.jpg";
+	string savePoseMatName = "../Data/Out/FinePose.txt";
+	cv::Mat ARMat;
+	ARMat = CTestFine.GetFineImg();
+	imwrite(saveImgName, ARMat);
+	imwrite(saveSrcName, testimg);
+	cv::Mat FinePoseMat;
+	FinePoseMat = CTestFine.GetFinePose();
+	WriteCVPoseMatToFile(savePoseMatName, FinePoseMat);
+#endif
 }
 
 void TestRotIterFinePoseVideo()
@@ -705,17 +730,17 @@ void RunAllTests()
 		TestKpsHomoFinePose();
 		cout << ".....................ok" << endl;*/
 
-		/*cout << "TestRotIterFinePose()......" << endl;
+		cout << "TestRotIterFinePose()......" << endl;
 		TestRotIterFinePose();
-		cout << ".....................ok" << endl;*/
+		cout << ".....................ok" << endl;
 
 		/*cout << "TestRotIterFinePoseVideo()......" << endl;
 		TestRotIterFinePoseVideo();
 		cout << ".....................ok" << endl;*/
 
-		cout << "TestCal6DPoseError()......" << endl;
+		/*cout << "TestCal6DPoseError()......" << endl;
 		TestCal6DPoseError();
-		cout << ".....................ok" << endl;
+		cout << ".....................ok" << endl;*/
 	}
 
 	catch (char const* message)
@@ -734,5 +759,47 @@ int main()
 	cv::destroyAllWindows();
 
 	return 0;
+}
+
+Mat ReadCVPoseMatFromFile(string & filename)
+{
+	Mat result = Mat::zeros(4, 4, CV_64FC1);
+	if (filename == " ")
+	{
+		cout << "Error: Read pose file path not defined ! " << endl;
+		return result;
+	}
+	ifstream infile;
+	infile.open(filename);
+	for (int i = 0; i < 4; i++)
+	{
+		for (int j = 0; j < 4; j++)
+		{
+			infile >> result.at<double>(i, j);
+		}
+	}
+	infile.close();
+	return result;
+}
+
+void WriteCVPoseMatToFile(string & filename, Mat & outMat)
+{
+	if (filename == " ")
+	{
+		cout << "Error: Out pose file path not defined ! " << endl;
+		return;
+	}
+	ofstream ofile;
+	ofile.open(filename);
+	for (int i = 0; i < outMat.rows; i++)
+	{
+		for (int j = 0; j < outMat.cols; j++)
+		{
+			ofile << outMat.at<double>(i, j)<<"\t";
+		}
+		ofile << endl;
+	}
+	ofile.close();
+	return;
 }
  

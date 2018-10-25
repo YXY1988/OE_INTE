@@ -112,7 +112,7 @@ cv::Mat SceneGenerator::GetSyntheticImg()
 	if (!m_Root || m_bReInitialize == true)
 	{
 		Initialize();
-		m_bReInitialize == false;
+		m_bReInitialize = false;
 	}
 		
 	osg::Matrix PoseMatrix = toOSGMat(m_PoseMat);

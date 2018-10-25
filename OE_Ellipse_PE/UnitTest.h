@@ -28,3 +28,5 @@ void TestCoarsePose();
 void TestImgConvertFunctions();
 void TestSyntheticTemplateGeneration();
 void RunAllTests();
+Mat ReadCVPoseMatFromFile(string & filename);
+void WriteCVPoseMatToFile(string & filename, Mat & outMat);

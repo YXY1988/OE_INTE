@@ -3,7 +3,7 @@
 #include <algorithm>
 #include <opencv2/core/eigen.hpp>
 //#define DETAIL
-#define SHOWIMG
+//#define SHOWIMG
 
 PoseEstimation::PoseEstimation()
 {
@@ -436,6 +436,7 @@ void PoseEstimation::SelectCandidatePose(vector<cv::Mat>& CoarsePoses, vector<cv
 
 	cout << "The minimal candidate pose score is: " << fPoseScore << endl;
 	m_CandidatePose = CoarsePoses[pose_index];
+	m_CandidatePose = CoarsePoses[0];
 	m_CandidateRect = ellRects[pose_index/2];
 	//m_SyncGenerator.SetReInitialize(true);
 	m_TmplImg = GenerateTemplateImg(m_CandidatePose);
@@ -697,34 +698,35 @@ void PoseEstimation::CalFinePoseBy3DIC41DOF()
 	//Todo: 2. 按照 score 收敛的变化量调整 theta 的步长，逐渐 choose best templates，比如 30度生成 12 个 templates，选最接近的，60度再生成 12 个 templates, 之后 10° 生成 10 个 templates,误差控制在1°
 	Mat NormVec_Z = (cv::Mat_<double>(1, 3) << 0, 0, 1);
 	GenPoses = GenRotPoses(m_CandidatePose,NormVec_Z,PI,PI/6);
-	temp_FinePose = SelectOptimalPose(GenPoses, temproi, imageroi);
+	temp_FinePose = SelectOptimalPose(GenPoses, temproi, imageroi,3);
+
 	Mat NormVec_X = (cv::Mat_<double>(1, 3) << 1, 0, 0);
-	GenPoses = GenRotPoses(temp_FinePose, NormVec_X, PI / 3, PI / 36);
-	temp_FinePose = SelectOptimalPose(GenPoses, temproi, imageroi);
+	GenPoses = GenRotPoses(temp_FinePose, NormVec_X, PI / 6, PI / 36);
+	temp_FinePose = SelectOptimalPose(GenPoses, temproi, imageroi, 3);
 	GenPoses = GenRotPoses(temp_FinePose, NormVec_X, PI / 36, PI / 180);
-	temp_FinePose = SelectOptimalPose(GenPoses, temproi, imageroi);
+	temp_FinePose = SelectOptimalPose(GenPoses, temproi, imageroi,3);
 	Mat NormVec_Y = (cv::Mat_<double>(1, 3) << 0, 1, 0);
-	GenPoses = GenRotPoses(temp_FinePose, NormVec_Y, PI / 3, PI / 36);
-	temp_FinePose = SelectOptimalPose(GenPoses, temproi, imageroi);
+	GenPoses = GenRotPoses(temp_FinePose, NormVec_Y, PI /6, PI / 36);
+	temp_FinePose = SelectOptimalPose(GenPoses, temproi, imageroi, 3);
 	GenPoses = GenRotPoses(temp_FinePose, NormVec_Y, PI / 36, PI / 180);
-	temp_FinePose = SelectOptimalPose(GenPoses, temproi, imageroi);
+	temp_FinePose = SelectOptimalPose(GenPoses, temproi, imageroi, 3);
 	//z 轴优化放到前面也可以，放到最后也可以
 	GenPoses = GenRotPoses(temp_FinePose, NormVec_Z, PI / 3, PI / 36);
-	temp_FinePose = SelectOptimalPose(GenPoses, temproi, imageroi);
+	temp_FinePose = SelectOptimalPose(GenPoses, temproi, imageroi, 2);
 	GenPoses = GenRotPoses(temp_FinePose, NormVec_Z, PI / 36, PI / 180);
-	temp_FinePose = SelectOptimalPose(GenPoses, temproi, imageroi);
+	temp_FinePose = SelectOptimalPose(GenPoses, temproi, imageroi, 2);
 
 #pragma  endregion CAL_BY_STEP
 	//Todo: 3. 配置 Release 加快试验速度
 	
-#ifdef DETAIL
+//#ifdef DETAIL
 	temp_sync = GenerateTemplateImg(temp_FinePose);
 	cvtColor(temp_sync, temp_sync, CV_BGR2GRAY);
 	Mat CapRoi = imageroi;
 	Mat TmplRoi = temp_sync(temproi).clone();
 	float fineScore = CalImgErrorByGF(CapRoi, TmplRoi);
 	cout << "The minimal fine pose score is: " << fineScore << endl;
-#endif
+//#endif
 	m_FinePose = temp_FinePose;
 	cout << "The fine pose is: " << endl << m_FinePose << endl;
 	m_ARGenerator.SetReInitialize(true);
