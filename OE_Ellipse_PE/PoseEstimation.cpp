@@ -435,8 +435,9 @@ void PoseEstimation::SelectCandidatePose(vector<cv::Mat>& CoarsePoses, vector<cv
 	}
 
 	cout << "The minimal candidate pose score is: " << fPoseScore << endl;
+	m_FinalScore = fPoseScore;
 	m_CandidatePose = CoarsePoses[pose_index];
-	m_CandidatePose = CoarsePoses[0];
+	//m_CandidatePose = CoarsePoses[0];
 	m_CandidateRect = ellRects[pose_index/2];
 	//m_SyncGenerator.SetReInitialize(true);
 	m_TmplImg = GenerateTemplateImg(m_CandidatePose);
@@ -668,10 +669,11 @@ void PoseEstimation::CalFinePoseByKpsHomography()
 	Mat TmplRoi = Img_Sync(temproi).clone();
 	fineScore = CalImgErrorByGF(CapRoi, TmplRoi);
 	cout << "The minimal fine pose score is: " << fineScore << endl;
+	m_FinalScore = fineScore;
 	m_FinePose = temp_FinePose;
 	cout << "The fine pose is: " << endl << m_FinePose << endl;
-	m_SyncGenerator.SetReInitialize(true);
-	m_FineImg = GenerateARImg(m_FinePose, m_CapImg);
+// 	m_SyncGenerator.SetReInitialize(true);
+// 	m_FineImg = GenerateARImg(m_FinePose, m_CapImg);
 }
 
 void PoseEstimation::CalFinePoseBy3DIC41DOF()
@@ -725,19 +727,20 @@ void PoseEstimation::CalFinePoseBy3DIC41DOF()
 	Mat CapRoi = imageroi;
 	Mat TmplRoi = temp_sync(temproi).clone();
 	float fineScore = CalImgErrorByGF(CapRoi, TmplRoi);
+	m_FinalScore = fineScore;
 	cout << "The minimal fine pose score is: " << fineScore << endl;
 //#endif
 	m_FinePose = temp_FinePose;
 	cout << "The fine pose is: " << endl << m_FinePose << endl;
-	m_ARGenerator.SetReInitialize(true);
-	m_FineImg = GenerateARImg(m_FinePose, m_CapImg);
+// 	m_ARGenerator.SetReInitialize(true);
+// 	m_FineImg = GenerateARImg(m_FinePose, m_CapImg);
 	
 #ifdef SHOWIMG
 	imshow("Final optimized 1D rot pose", m_FineImg);
 	waitKey(0);
 #endif
 }
-
+ 
 Mat PoseEstimation::SelectOptimalPose(vector<cv::Mat>& Poses, cv::Rect & rect, cv::Mat & CapRoi, int ErrMode)
 {
 	if(Poses.size()==0||rect.empty()||CapRoi.empty())

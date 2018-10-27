@@ -653,25 +653,137 @@ void TestRotIterFinePoseVideo()
 void TestCal6DPoseError()
 {
 	ofstream outfile;
-	outfile.open("../Output/savedata.csv");
+	outfile.open("../Data/Out/savedata.csv");
 	outfile << "tx" << ',' << "ty" << ',' << "tz" << ','
 		<< "rx" << ',' << "ry" << ',' << "rz" << endl;
 	Mat test_gt = (cv::Mat_<double>(4, 4) << 0.3929252092290151, 0.8621589373979998, -0.3198308093618978, 127.9172690262129,
-	-0.91957043229561, 0.3683937292547413, -0.1366611879556503, 60.04240737299161,
-	0, 0.3478045814973347, 0.9375670499166787, -871.9922573477522,
-	0, 0, 0, 1);
+		-0.91957043229561, 0.3683937292547413, -0.1366611879556503, 60.04240737299161,
+		0, 0.3478045814973347, 0.9375670499166787, -871.9922573477522,
+		0, 0, 0, 1);
 	Mat test_est = (cv::Mat_<double>(4, 4) << 0.3721778266686779, 0.868786669052228, -0.3266395925573681, 127.9172690262129,
-	-0.9281044312317063, 0.352249729216505, -0.1205916595269381, 60.04240737299161,
-	0.0102902820154755, 0.3480371846190551, 0.9374242679549672, -871.9922573477522,
-	0, 0, 0, 1);
+		-0.9281044312317063, 0.352249729216505, -0.1205916595269381, 60.04240737299161,
+		0.0102902820154755, 0.3480371846190551, 0.9374242679549672, -871.9922573477522,
+		0, 0, 0, 1);
 	PoseEstimation validator;
 	validator.Cal6DPoseError(test_gt, test_est, outfile, true);
 	outfile.close();
 }
 
+void SyntheticValidator()
+{
+	PoseEstimation SynDataGenerator;
+	cv::Mat Intrinsic = (cv::Mat_<double>(3, 3) << 827.50897692124522, 0, 299.60111699063754,
+		0, 814.73836342732341, 256.75622898129393, 0, 0, 1);
+	string IveModelName = "../Data/Temp/cylinder.ive";
+	float modelRadius = 178;
+	cv::Mat ObjectTransform = (cv::Mat_<double>(4, 4) << -1, 0, 0, 0,
+		0, 1, 0, 0,
+		0, 0, -1, 0,
+		0, 0, 0, 1);
+	SynDataGenerator.Initialize(Intrinsic, IveModelName, modelRadius, ObjectTransform);
+
+	string IniPoseFilePath = "../Data/Temp/testInitialPose.txt";
+	Mat InitialPose = ReadCVPoseMatFromFile(IniPoseFilePath);
+
+	Mat NormVec_X = (cv::Mat_<double>(1, 3) << 1, 0, 0);
+	Mat NormVec_Y = (cv::Mat_<double>(1, 3) << 0, 1, 0);
+	Mat NormVec_Z = (cv::Mat_<double>(1, 3) << 0, 0, 1);
+	Mat NormVecTest = NormVec_Z;
+
+	vector<Mat> TestPoses;
+	double TestRange = PI / 3;
+	double TestStep = PI / 36;
+	TestPoses = SynDataGenerator.GenRotPoses(InitialPose, NormVecTest, TestRange, TestStep);
+
+	//Save pose error and Img Score Error
+	string SaveCoarsePoseFilePath = "../Data/Out/CoarsePose_Rotx.csv";
+	string SaveKpsPoseFilePath = "../Data/Out/KpsPose_Rotx.csv";
+	string SaveFinePoseFilePath = "../Data/Out/FinePose_Rotx.csv";
+	string SaveScorePoseFilePath = "../Data/Out/ImgScore_Rotx.csv";
+
+	ofstream ofile_coarse;
+	ofstream ofile_fine;
+	ofstream ofile_kps;
+	ofstream ofile_score;
+
+	ofile_coarse.open(SaveCoarsePoseFilePath);
+	ofile_kps.open(SaveKpsPoseFilePath);
+	ofile_fine.open(SaveFinePoseFilePath);
+	ofile_score.open(SaveScorePoseFilePath);
+	ofile_coarse << "tx" << ',' << "ty" << ',' << "tz" << ','
+		<< "rx" << ',' << "ry" << ',' << "rz" << endl;
+	ofile_kps << "tx" << ',' << "ty" << ',' << "tz" << ','
+		<< "rx" << ',' << "ry" << ',' << "rz" << endl;
+	ofile_fine << "tx" << ',' << "ty" << ',' << "tz" << ','
+		<< "rx" << ',' << "ry" << ',' << "rz" << endl;
+	ofile_score << "Coarse" << ',' << "Kps" << ',' << "Proposed" << endl;
+
+	for (int i = 0; i < TestPoses.size(); ++i)
+	{
+		Mat GtPose = TestPoses[i];
+		Mat testimg = SynDataGenerator.GenerateTemplateImg(GtPose);
+		SynDataGenerator.SetCapImg(testimg);
+
+		//Ellipse Detection
+		cv::Mat test, contour, temp, result;
+		vector<vector<cv::Point>> edges;
+		EdgeDetection _EdgeDetector;
+		EllipseDetection _EllipseDetector;
+		vector<ElliFit::Ellipse> ellResult;
+		vector<cv::Mat> ellMats;
+		vector<cv::Rect> ellRects;
+
+		test = testimg.clone();
+		_EdgeDetector.SetSrcImg(test);
+		contour = _EdgeDetector.CannyContourDetection(50, 150);
+
+		temp = contour.clone();
+		temp = _EdgeDetector.FilterTurning(temp, 5);
+		temp = _EdgeDetector.FilterLines(temp);
+		temp = _EdgeDetector.FilterLength(temp, 10);
+		edges = _EdgeDetector.GetFinalContours();
+
+		_EllipseDetector.SetSrcImg(test);
+		_EllipseDetector.SetFilter_radius(100.);//100
+		_EllipseDetector.DetectEllipses(temp, edges);
+
+		ellResult = _EllipseDetector.GetEllDetectionResult();
+		ellMats = _EllipseDetector.GetEllMatResult();
+		ellRects = _EllipseDetector.GetEllRects();
+
+		//Test Coarse Pose
+		vector<cv::Mat> CoarsePoses;
+		SynDataGenerator.CalCoarsePoses(ellMats);
+		CoarsePoses = SynDataGenerator.GetCoarsePoses();
+		SynDataGenerator.SelectCandidatePose(CoarsePoses, ellRects);
+		Mat CoarsePose = SynDataGenerator.GetCandidatePose();
+		SynDataGenerator.Cal6DPoseError(GtPose, CoarsePose, ofile_coarse);
+		float fCoarseScore = SynDataGenerator.GetFinalScore();
+		ofile_score << fCoarseScore << ",";
+
+		//Test Kps Pose
+		SynDataGenerator.CalFinePoseByKpsHomography();
+		Mat KpsPose = SynDataGenerator.GetFinePose();
+		SynDataGenerator.Cal6DPoseError(GtPose, KpsPose, ofile_kps);
+		float fKpsScore = SynDataGenerator.GetFinalScore();
+		ofile_score << fKpsScore << ",";
+
+		//Test Fine Pose
+		SynDataGenerator.CalFinePoseBy3DIC41DOF();
+		Mat FinePose = SynDataGenerator.GetFinePose();
+		SynDataGenerator.Cal6DPoseError(GtPose, FinePose, ofile_fine);
+		float fFineScore = SynDataGenerator.GetFinalScore();
+		ofile_score << fFineScore << "," << endl;
+	}
+	ofile_coarse.close();
+	ofile_kps.close();
+	ofile_fine.close();
+	ofile_score.close();
+}
+
 void RunAllTests()
 {
-	cv::Mat testimg = cv::imread("../Data/ellfigure/test38.jpg");
+	//cv::Mat testimg = cv::imread("../Data/ellfigure/test38.jpg");
 	try
 	{
 		/*cout << "CVCalibTest()......" << endl;
@@ -730,9 +842,9 @@ void RunAllTests()
 		TestKpsHomoFinePose();
 		cout << ".....................ok" << endl;*/
 
-		cout << "TestRotIterFinePose()......" << endl;
+		/*cout << "TestRotIterFinePose()......" << endl;
 		TestRotIterFinePose();
-		cout << ".....................ok" << endl;
+		cout << ".....................ok" << endl;*/
 
 		/*cout << "TestRotIterFinePoseVideo()......" << endl;
 		TestRotIterFinePoseVideo();
@@ -741,6 +853,10 @@ void RunAllTests()
 		/*cout << "TestCal6DPoseError()......" << endl;
 		TestCal6DPoseError();
 		cout << ".....................ok" << endl;*/
+
+		cout << "SyntheticValidator()......" << endl;
+		SyntheticValidator();
+		cout << ".....................ok" << endl;
 	}
 
 	catch (char const* message)

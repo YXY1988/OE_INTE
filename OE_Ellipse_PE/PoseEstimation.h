@@ -49,6 +49,8 @@ public:
 	void SetFineImg(cv::Mat val) { m_FineImg = val; }
 	SceneGenerator GetARGenerator() const { return m_ARGenerator; }
 	void SetARGenerator(SceneGenerator val) { m_ARGenerator = val; }
+	float GetFinalScore() const { return m_FinalScore; }
+	void SetFinalScore(float val) { m_FinalScore = val; }
 public:
 	//初始化模型和相机内参数信息，不要在计算过程中反复加载。pose 和 bg Img 是变数，不加载。
 	void Initialize(cv::Mat & Intrinsic, string & ModelPath, float & ModelRadius, cv::Mat & ObjectTransform);
@@ -103,5 +105,7 @@ private:
 
 	Ptr<SURF> surf;
 	BFMatcher matcher;
+
+	float m_FinalScore;
 };
 
