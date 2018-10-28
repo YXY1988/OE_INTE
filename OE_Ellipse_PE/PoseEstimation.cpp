@@ -702,7 +702,7 @@ void PoseEstimation::CalFinePoseBy3DIC41DOF()
 	GenPoses = GenRotPoses(m_CandidatePose,NormVec_Z,PI,PI/6);
 	temp_FinePose = SelectOptimalPose(GenPoses, temproi, imageroi,3);
 
-	Mat NormVec_X = (cv::Mat_<double>(1, 3) << 1, 0, 0);
+	/*Mat NormVec_X = (cv::Mat_<double>(1, 3) << 1, 0, 0);
 	GenPoses = GenRotPoses(temp_FinePose, NormVec_X, PI / 6, PI / 36);
 	temp_FinePose = SelectOptimalPose(GenPoses, temproi, imageroi, 3);
 	GenPoses = GenRotPoses(temp_FinePose, NormVec_X, PI / 36, PI / 180);
@@ -711,7 +711,7 @@ void PoseEstimation::CalFinePoseBy3DIC41DOF()
 	GenPoses = GenRotPoses(temp_FinePose, NormVec_Y, PI /6, PI / 36);
 	temp_FinePose = SelectOptimalPose(GenPoses, temproi, imageroi, 3);
 	GenPoses = GenRotPoses(temp_FinePose, NormVec_Y, PI / 36, PI / 180);
-	temp_FinePose = SelectOptimalPose(GenPoses, temproi, imageroi, 3);
+	temp_FinePose = SelectOptimalPose(GenPoses, temproi, imageroi, 3);*/
 	//z 轴优化放到前面也可以，放到最后也可以
 	GenPoses = GenRotPoses(temp_FinePose, NormVec_Z, PI / 3, PI / 36);
 	temp_FinePose = SelectOptimalPose(GenPoses, temproi, imageroi, 2);
@@ -820,21 +820,21 @@ vector<cv::Mat> PoseEstimation::GenRotPoses(cv::Mat & IniPose, cv::Mat & VecNorm
 		float alpha = i * degree_step-M*degree_step;
 		double cs = cos(alpha);
 		double ss = sin(alpha);
-		if (VecNorm.at<double>(0, 2) == 1)
+		if (VecNorm.at<double>(0, 2) == 1) //rotz
 		{
 			RotDegTemp = (cv::Mat_<double>(3, 3) <<
 				cs, -ss, 0,
 				ss, cs, 0,
 				0, 0, 1);
 		}
-		if (VecNorm.at<double>(0, 0) == 1)
+		if (VecNorm.at<double>(0, 0) == 1)//rotx
 		{
 			RotDegTemp = (cv::Mat_<double>(3, 3) <<
 				1, 0, 0,
 				0, cs, -ss,
 				0, ss, cs);
 		}
-		if (VecNorm.at<double>(0, 1) == 1)
+		if (VecNorm.at<double>(0, 1) == 1)//roty
 		{
 			RotDegTemp = (cv::Mat_<double>(3, 3) <<
 				cs, 0, ss,
@@ -847,6 +847,41 @@ vector<cv::Mat> PoseEstimation::GenRotPoses(cv::Mat & IniPose, cv::Mat & VecNorm
 		GenRotPoses.push_back(GenRotPose);
 	}
 	return GenRotPoses;
+}
+
+vector<cv::Mat> GenTransPoses(cv::Mat & IniPose, cv::Mat & VecNorm, float trans_range, float trans_step)
+{
+	if (IniPose.empty() || VecNorm.empty())
+	{
+		cout << "error IniPose or error VecNorm" << endl;
+	}
+	vector<cv::Mat> GenTransPoses;
+	cv::Mat TransAfterMat=IniPose.clone();
+	cv::Mat GenTransPose;
+
+	int N = ceil(trans_range / trans_step);
+	int M = ceil(N / 2);
+#pragma omp parallel for
+	for (int i = 0; i < N; ++i)
+	{
+		float trans_offset = i * trans_step;
+		if (VecNorm.at<double>(0, 2) == 1)//transz
+		{
+			TransAfterMat.at<double>(2, 3) += trans_offset;
+		}
+		if (VecNorm.at<double>(0, 0) == 1)//transx
+		{
+			TransAfterMat.at<double>(0, 3) += trans_offset;
+		}
+		if (VecNorm.at<double>(0, 1) == 1)//transy
+		{
+			TransAfterMat.at<double>(1, 3) += trans_offset;
+		}
+		
+		GenTransPose = TransAfterMat;
+		GenTransPoses.push_back(GenTransPose);
+	}
+	return GenTransPoses;
 }
 
 void PoseEstimation::Cal6DPoseError(cv::Mat & Pose_gt, cv::Mat & Pose_est, ofstream & ofile, bool isWrite)
@@ -869,9 +904,9 @@ void PoseEstimation::Cal6DPoseError(cv::Mat & Pose_gt, cv::Mat & Pose_est, ofstr
 	cv::normalize(Ry_gt, Ry_gt);
 	cv::normalize(Rz_gt, Rz_gt);
 	Mat TransErr = Trans_gt - Trans_est;
-	err_tx = TransErr.at<double>(0, 0);
-	err_ty = TransErr.at<double>(0, 0);
-	err_tz = TransErr.at<double>(0, 0);
+	err_tx = abs(TransErr.at<double>(0, 0));
+	err_ty = abs(TransErr.at<double>(0, 0));
+	err_tz = abs(TransErr.at<double>(0, 0));
 	double test = Rx_gt.dot(Rx_est);
 	err_rx = acos((Rx_gt.dot(Rx_est)));
 	err_ry = acos(Ry_gt.dot(Ry_est));

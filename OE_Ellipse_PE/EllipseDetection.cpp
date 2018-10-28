@@ -282,7 +282,7 @@ namespace ElliFit {
 		vector<cv::Mat>  GroupedEllMats;
 		vector<cv::Rect> GroupedEllRects;
 		cv::Rect tempRect;
-		double PeriThresh = 0.3;
+		double PeriThresh = 0.5;
 		float tempMajorRadius = 10.0;
 
 #pragma omp parallel for

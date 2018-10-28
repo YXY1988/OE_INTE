@@ -688,10 +688,10 @@ void SyntheticValidator()
 	Mat NormVec_X = (cv::Mat_<double>(1, 3) << 1, 0, 0);
 	Mat NormVec_Y = (cv::Mat_<double>(1, 3) << 0, 1, 0);
 	Mat NormVec_Z = (cv::Mat_<double>(1, 3) << 0, 0, 1);
-	Mat NormVecTest = NormVec_Z;
+	Mat NormVecTest = NormVec_X;
 
 	vector<Mat> TestPoses;
-	double TestRange = PI / 3;
+	double TestRange = PI*2 / 3;
 	double TestStep = PI / 36;
 	TestPoses = SynDataGenerator.GenRotPoses(InitialPose, NormVecTest, TestRange, TestStep);
 
@@ -755,7 +755,7 @@ void SyntheticValidator()
 		vector<cv::Mat> CoarsePoses;
 		SynDataGenerator.CalCoarsePoses(ellMats);
 		CoarsePoses = SynDataGenerator.GetCoarsePoses();
-		SynDataGenerator.SelectCandidatePose(CoarsePoses, ellRects);
+		SynDataGenerator.SelectCandidatePose(CoarsePoses, ellRects,1);
 		Mat CoarsePose = SynDataGenerator.GetCandidatePose();
 		SynDataGenerator.Cal6DPoseError(GtPose, CoarsePose, ofile_coarse);
 		float fCoarseScore = SynDataGenerator.GetFinalScore();
