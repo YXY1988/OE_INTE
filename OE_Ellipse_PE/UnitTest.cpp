@@ -688,18 +688,20 @@ void SyntheticValidator()
 	Mat NormVec_X = (cv::Mat_<double>(1, 3) << 1, 0, 0);
 	Mat NormVec_Y = (cv::Mat_<double>(1, 3) << 0, 1, 0);
 	Mat NormVec_Z = (cv::Mat_<double>(1, 3) << 0, 0, 1);
-	Mat NormVecTest = NormVec_X;
+	Mat NormVecTest = NormVec_Z;
 
 	vector<Mat> TestPoses;
-	double TestRange = PI*2 / 3;
-	double TestStep = PI / 36;
-	TestPoses = SynDataGenerator.GenRotPoses(InitialPose, NormVecTest, TestRange, TestStep);
-
+	double TestRotRange = PI*2 / 3;
+	double TestRotStep = PI / 36;
+	double TestTransRange = 200;
+	double TestTransStep = 5;
+	//TestPoses = SynDataGenerator.GenRotPoses(InitialPose, NormVecTest, TestRotRange, TestRotStep);
+	TestPoses = SynDataGenerator.GenTransPoses(InitialPose, NormVecTest, TestTransRange, TestTransStep);
 	//Save pose error and Img Score Error
-	string SaveCoarsePoseFilePath = "../Data/Out/CoarsePose_Rotx.csv";
-	string SaveKpsPoseFilePath = "../Data/Out/KpsPose_Rotx.csv";
-	string SaveFinePoseFilePath = "../Data/Out/FinePose_Rotx.csv";
-	string SaveScorePoseFilePath = "../Data/Out/ImgScore_Rotx.csv";
+	string SaveCoarsePoseFilePath = "../Data/Out/CoarsePose_TransZ.csv";
+	string SaveKpsPoseFilePath = "../Data/Out/KpsPose_TransZ.csv";
+	string SaveFinePoseFilePath = "../Data/Out/FinePose_TransZ.csv";
+	string SaveScorePoseFilePath = "../Data/Out/ImgScore_TransZ.csv";
 
 	ofstream ofile_coarse;
 	ofstream ofile_fine;

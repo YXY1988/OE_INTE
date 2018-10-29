@@ -702,7 +702,7 @@ void PoseEstimation::CalFinePoseBy3DIC41DOF()
 	GenPoses = GenRotPoses(m_CandidatePose,NormVec_Z,PI,PI/6);
 	temp_FinePose = SelectOptimalPose(GenPoses, temproi, imageroi,3);
 
-	/*Mat NormVec_X = (cv::Mat_<double>(1, 3) << 1, 0, 0);
+	Mat NormVec_X = (cv::Mat_<double>(1, 3) << 1, 0, 0);
 	GenPoses = GenRotPoses(temp_FinePose, NormVec_X, PI / 6, PI / 36);
 	temp_FinePose = SelectOptimalPose(GenPoses, temproi, imageroi, 3);
 	GenPoses = GenRotPoses(temp_FinePose, NormVec_X, PI / 36, PI / 180);
@@ -711,7 +711,7 @@ void PoseEstimation::CalFinePoseBy3DIC41DOF()
 	GenPoses = GenRotPoses(temp_FinePose, NormVec_Y, PI /6, PI / 36);
 	temp_FinePose = SelectOptimalPose(GenPoses, temproi, imageroi, 3);
 	GenPoses = GenRotPoses(temp_FinePose, NormVec_Y, PI / 36, PI / 180);
-	temp_FinePose = SelectOptimalPose(GenPoses, temproi, imageroi, 3);*/
+	temp_FinePose = SelectOptimalPose(GenPoses, temproi, imageroi, 3);
 	//z 轴优化放到前面也可以，放到最后也可以
 	GenPoses = GenRotPoses(temp_FinePose, NormVec_Z, PI / 3, PI / 36);
 	temp_FinePose = SelectOptimalPose(GenPoses, temproi, imageroi, 2);
@@ -849,7 +849,7 @@ vector<cv::Mat> PoseEstimation::GenRotPoses(cv::Mat & IniPose, cv::Mat & VecNorm
 	return GenRotPoses;
 }
 
-vector<cv::Mat> GenTransPoses(cv::Mat & IniPose, cv::Mat & VecNorm, float trans_range, float trans_step)
+vector<cv::Mat> PoseEstimation::GenTransPoses(cv::Mat & IniPose, cv::Mat & VecNorm, float trans_range, float trans_step)
 {
 	if (IniPose.empty() || VecNorm.empty())
 	{
@@ -864,18 +864,18 @@ vector<cv::Mat> GenTransPoses(cv::Mat & IniPose, cv::Mat & VecNorm, float trans_
 #pragma omp parallel for
 	for (int i = 0; i < N; ++i)
 	{
-		float trans_offset = i * trans_step;
+		float trans_offset = trans_step;
 		if (VecNorm.at<double>(0, 2) == 1)//transz
 		{
-			TransAfterMat.at<double>(2, 3) += trans_offset;
+			TransAfterMat.at<double>(2, 3) -= trans_offset;
 		}
 		if (VecNorm.at<double>(0, 0) == 1)//transx
 		{
-			TransAfterMat.at<double>(0, 3) += trans_offset;
+			TransAfterMat.at<double>(0, 3) -= trans_offset;
 		}
 		if (VecNorm.at<double>(0, 1) == 1)//transy
 		{
-			TransAfterMat.at<double>(1, 3) += trans_offset;
+			TransAfterMat.at<double>(1, 3) -= trans_offset;
 		}
 		
 		GenTransPose = TransAfterMat;
