@@ -173,6 +173,11 @@ namespace ElliFit {
 		ell.ellipseCentroid.y += meanp.y;
 	}
 
+	static bool EllipseSort(const Ellipse &v1, const Ellipse &v2)
+	{
+		return v1.majorRadius > v2.majorRadius;
+	}
+	
 	EllipseDetection::EllipseDetection()
 	{
 		filter_radius = 100;
@@ -180,6 +185,7 @@ namespace ElliFit {
 	EllipseDetection::~EllipseDetection()
 	{
 	}
+
 	void EllipseDetection::SetSrcImg(cv::Mat& srcImage)
 	{
 		srcImage.copyTo(m_SrcImg);
@@ -213,10 +219,11 @@ namespace ElliFit {
 			CvScalar color = CV_RGB(rand() & 255, rand() & 255, rand()&255);
 			ellipseFit(iRows, iCols, tempcontour, tempell);
 			double FlatRate = tempell.majorRadius / tempell.minorRadius;
-
+			cout << tempell.residue << ""<< tempell.majorRadius<<endl;
 			if(tempell.residue>0.2
 				||isnan(tempell.residue)
-				/*||tempell.majorRadius<10*//*||FlatRate>5*/) //如果小尺寸，不要对major Radius过滤
+				||tempell.majorRadius<filter_radius
+				||FlatRate>5) 
 				continue;
 			else
 			{
@@ -282,7 +289,7 @@ namespace ElliFit {
 		vector<cv::Mat>  GroupedEllMats;
 		vector<cv::Rect> GroupedEllRects;
 		cv::Rect tempRect;
-		double PeriThresh = 0.5;
+		double PeriThresh = 0.1;
 		float tempMajorRadius = 10.0;
 
 #pragma omp parallel for
@@ -309,10 +316,10 @@ namespace ElliFit {
 			}
 
 			
-			//double FlatRate = tempell.majorRadius / tempell.minorRadius;
-			if(tempell.residue>0.1||isnan(tempell.residue)
-				||bIsEll==false||bIsPtEnough==false||tempell.minorRadius<100
-				/*||tempell.majorRadius<10*/)
+			double FlatRate = tempell.majorRadius / tempell.minorRadius;
+			if(tempell.residue>0.2||isnan(tempell.residue)
+				||bIsEll==false||bIsPtEnough==false||FlatRate>5
+				/*||tempell.majorRadius<100*/)
 				continue;
 			else
 			{
@@ -328,7 +335,7 @@ namespace ElliFit {
 					rotrect.angle = static_cast<float>(RAD2DEG * tempell.orientationAngle);
 					rotrect.size.width = static_cast<float>(2 * tempell.majorRadius);
 					rotrect.size.height = static_cast<float>(2 * tempell.minorRadius);
-					ellipse(m_SrcImg, rotrect, cv::Scalar(0, 255, 0), 2, 8);
+					//ellipse(m_SrcImg, rotrect, cv::Scalar(0, 255, 0), 2, 8);
 					tempRect = rotrect.boundingRect();
 					if (tempRect.x < 0)
 						tempRect.x = 0;
@@ -351,10 +358,10 @@ namespace ElliFit {
 					cout << "rotrect size is: " << rotrect.size << endl;
 					cout << "Ell mat is: " << endl << m_tempell << endl;
 #endif
-					ellipse(m_SrcImg, rotrect, cv::Scalar(0, 255, 0), 2, 8);
-					cv::imshow("GroupedFinal", m_SrcImg);
-					cv::waitKey(50);
-					imwrite("../Data/Out/Ellipse.jpg", m_SrcImg);
+					//ellipse(m_SrcImg, rotrect, cv::Scalar(0, 255, 0), 2, 8);
+					//cv::imshow("GroupedFinal", m_SrcImg);
+					//cv::waitKey(50);
+					//imwrite("../Data/Out/Ellipse.jpg", m_SrcImg);
 
 					
 					/*cv::imwrite("../Data/ellfigure/groupedfinal.jpg", m_SrcImg);
@@ -364,17 +371,71 @@ namespace ElliFit {
 		}
 		if (GroupedElls.size() > 3)
 		{
-			m_ellRects.assign(GroupedEllRects.begin(),GroupedEllRects.begin()+3);
+			std::sort(GroupedElls.begin(), GroupedElls.end(), EllipseSort);
+			
 			m_ellipses.push_back(GroupedElls[0]);
 			m_ellipses.push_back(GroupedElls[1]);
 			m_ellipses.push_back(GroupedElls[2]);
-			m_ellMats.assign(GroupedEllMats.begin(),GroupedEllMats.begin()+3);
+			m_ellRects.clear();
+			m_ellMats.clear();
+			//m_ellRects.assign(GroupedEllRects.begin(),GroupedEllRects.begin()+3);
+			//m_ellMats.assign(GroupedEllMats.begin(),GroupedEllMats.begin()+3);
 		}
-		else
+		else 
 		{
-			m_ellRects = GroupedEllRects;
+			std::sort(GroupedElls.begin(), GroupedElls.end(), EllipseSort);
 			m_ellipses = GroupedElls;
-			m_ellMats = GroupedEllMats;
+			m_ellRects.clear();
+			m_ellMats.clear();
+		}
+		for (int i = 0; i < m_ellipses.size(); ++i)
+		{
+			tempell = m_ellipses[i];
+			rotrect.center = cv::Point(tempell.ellipseCentroid.x, tempell.ellipseCentroid.y);
+			rotrect.angle = static_cast<float>(RAD2DEG * tempell.orientationAngle);
+			rotrect.size.width = static_cast<float>(2 * tempell.majorRadius);
+			rotrect.size.height = static_cast<float>(2 * tempell.minorRadius);
+			ellipse(m_SrcImg, rotrect, cv::Scalar(0, 255, 0), 2, 8);
+			m_tempell = EllParam2EllMat(tempell);
+			tempRect = rotrect.boundingRect();
+// 			if (tempRect.x - 0.5*tempRect.width < 0)
+// 				tempRect.x = 0;
+// 			else
+// 				tempRect.x = tempRect.x - 0.5*tempRect.width;
+// 			if (tempRect.y - 0.5*tempRect.height < 0)
+// 				tempRect.y = 0;
+// 			else
+// 				tempRect.y = tempRect.y - 0.5*tempRect.height;
+// 			if (tempRect.x + 1.5*tempRect.width > m_SrcImg.cols)
+// 				tempRect.width = m_SrcImg.cols - tempRect.x;
+// 			else
+// 				tempRect.width = tempRect.width *2;
+// 			if (tempRect.y + 1.5*tempRect.height  > m_SrcImg.rows)
+// 				tempRect.height = m_SrcImg.rows - tempRect.y;
+// 			else
+// 				tempRect.height = tempRect.height*2;
+			if (tempRect.x < 0)
+				tempRect.x = 0;
+			if (tempRect.y < 0)
+				tempRect.y = 0;
+			if (tempRect.x + tempRect.width > m_SrcImg.cols)
+				tempRect.width = m_SrcImg.cols - tempRect.x;
+			if (tempRect.y + tempRect.height > m_SrcImg.rows)
+				tempRect.height = m_SrcImg.rows - tempRect.y;
+			
+			if (i == 0)
+			{
+				cv::rectangle(m_SrcImg,
+					cv::Point(tempRect.x, tempRect.y),
+					cv::Point(tempRect.x + tempRect.width, tempRect.y + tempRect.height),
+					cv::Scalar(0, 0, 255),
+					2);
+				cv::waitKey(10);
+			}
+			m_ellMats.push_back(m_tempell);
+			m_ellRects.push_back(tempRect);
+			//cv::imshow("GroupedFinal", m_SrcImg);
+			//cv::waitKey(50);
 		}
 		return;
 	}
@@ -411,7 +472,7 @@ namespace ElliFit {
 		double maxdist = 0;
 		DistContourToEll(pts, m_ell, avrdist, maxdist);
 		//if (avrdist < 0.5&&maxdist < 1.5)
-		if (avrdist < 2.5&&maxdist < 5.0)
+		if (avrdist < 2 && maxdist < 5)
 		{
 			IsEll = true;
  			/*cout << "符合avr和max约束： " << endl;

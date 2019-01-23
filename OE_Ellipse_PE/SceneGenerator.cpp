@@ -2,8 +2,8 @@
 SceneGenerator::SceneGenerator()
 {
 	m_bUseImgBg = false;
-	m_iViewerWidth = 640;
-	m_iViewerHeight = 480;
+	m_iViewerWidth = 1920;
+	m_iViewerHeight = 1080;
 }
 
 SceneGenerator::~SceneGenerator()
@@ -77,10 +77,10 @@ void SceneGenerator::Initialize()
 		state->setRenderingHint(osg::StateSet::TRANSPARENT_BIN);
 		osg::ref_ptr<osg::Depth> depth = new osg::Depth();
 		depth->setWriteMask(false);
-		state->setAttributeAndModes(depth, osg::StateAttribute::ON);
+		state->setAttributeAndModes(depth, osg::StateAttribute::ON);//orginal= on
 
 		osg::BlendFunc *blendFunc = new osg::BlendFunc();
-		osg::BlendColor *blendColor = new osg::BlendColor(osg::Vec4(1, 1, 1, 0.4f));
+		osg::BlendColor *blendColor = new osg::BlendColor(osg::Vec4(1, 1, 1, 0.2f));
 		blendFunc->setSource(osg::BlendFunc::CONSTANT_ALPHA);
 		blendFunc->setDestination(osg::BlendFunc::ONE_MINUS_CONSTANT_ALPHA);
 
@@ -122,6 +122,7 @@ cv::Mat SceneGenerator::GetSyntheticImg()
 	m_MainViewer->frame();
 	Sleep(100);				//等待写入完成
 
+	//m_MainViewer->run();
 	return ConvertOsgImg2CVMat(m_FBOImage);
 }
 

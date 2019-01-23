@@ -1,8 +1,7 @@
 #include "UnitTest.h"
 #include "commonlibs.h"
-//#define VERBOSE
+#define VERBOSE
 #define SAVEDATA
-/*
 void CVCalibTest()
 {
 	CameraParam cvParam;
@@ -43,11 +42,14 @@ void Cv2arTest()
 	bool bOk = true;
 	CameraParam cvParam;
 	ARParam arParam;
-	string arCalibFileName = "../../Data/Params/Logitechc270_cv0709.dat";
-	string cvCalibFileName = "../../Data/Params/Logitechc270_cv0709.xml";
+	//string cvCalibFileName = "../../Data/Params/Logitechc270_cv0709.xml";
+	//string arCalibFileName = "../../Data/Params/Logitechc270_cv0709.dat";
+
+	string cvCalibFileName = "F:/Datasets/EPFL_can/CAN-TestAndInfo/intrinsic_CV.xml";
+	string arCalibFileName = "F:/Datasets/EPFL_can/CAN-TestAndInfo/intrinsic_AR_v2.dat";
 
 	cvParam.ReadCVCalibParam(cvCalibFileName);
-	cvParam.GetARTKCamParam(arCalibFileName);
+	cvParam.GetARTKCamParam(arCalibFileName,2);
 	arParam = cvParam.GetARParam();
 
 	if (arParam.mat[0][0] == 0) bOk = false;
@@ -55,7 +57,7 @@ void Cv2arTest()
 		throw "Fail convert cv calibfile to artk format.";
 	return;
 }
-*/
+
 void DetectMajorEllipses(cv::Mat & src)
 {
 	cv::Mat test, contour, temp, result;
@@ -76,7 +78,7 @@ void DetectMajorEllipses(cv::Mat & src)
 	double t_begin = cv::getTickCount();
 #endif
 
-	contour = _EdgeDetector.CannyContourDetection(50, 150);
+	contour = _EdgeDetector.CannyContourDetection(20, 100);
 
 #ifdef VERBOSE
 	double t_end = cv::getTickCount();
@@ -99,7 +101,7 @@ void DetectMajorEllipses(cv::Mat & src)
 	cv::Mat rgb_contour;
 	cv::cvtColor(temp.clone(), rgb_contour, cv::COLOR_GRAY2BGR);
 	_EllipseDetector.SetSrcImg(test);
-	_EllipseDetector.SetFilter_radius(200.);//100
+	_EllipseDetector.SetFilter_radius(15.0);//100
 	_EllipseDetector.DetectEllipses(temp, edges);
 	_EllipseDetector.DrawEllipses();
 
@@ -180,7 +182,7 @@ void TestSyntheticTemplateGeneration()
 	sceneGenerator.SetModelName(IveModelName);
 	sceneGenerator.SetUseImgBgFlag(true);
 	sceneGenerator.SetPoseMat(OsgPoseMat);
-	sceneGenerator.SetViewerSize(640, 480);
+	sceneGenerator.SetViewerSize(960, 540);
 	sceneGenerator.SetObjectSelfTransform(ObjectTransform);
 
 	cv::Mat result;
@@ -503,7 +505,7 @@ void TestKpsHomoFinePose()
 
 void TestRotIterFinePose()
 {
-	cv::Mat testimg = cv::imread("../Data/SampleImages/ComplexBright/test189.jpg");
+	cv::Mat testimg = cv::imread("F:/Datasets/EPFL_can/video2/frame00080.png");
 	//cv::Mat testimg = cv::imread("../Data/coarse2.png");
 	cv::Mat test, contour, temp, result;
 	vector<vector<cv::Point>> edges;
@@ -513,67 +515,104 @@ void TestRotIterFinePose()
 	vector<cv::Mat> ellMats;
 	vector<cv::Rect> ellRects;
 
+	//Ini Pose Estimator
+	PoseEstimation CTestFine;
+// 	cv::Mat Intrinsic = (cv::Mat_<double>(3, 3) << 827.50897692124522, 0, 299.60111699063754,
+// 		0, 814.73836342732341, 256.75622898129393, 0, 0, 1);
+	cv::Mat Intrinsic = (cv::Mat_<double>(3, 3) <<
+		2666.67, 0, 960,
+		0, 2666.67, 540,
+		0, 0, 1);
+	string IveModelName = "F:/Datasets/EPFL_can/CAN-TestAndInfo/transcan.ive";
+	float modelRadius = 0.042;
+// 	cv::Mat ObjectTransform = (cv::Mat_<double>(4, 4) <<
+// 		1, 0, 0, 0,
+// 		0, 0, 1, 0,
+// 		0, -1, 0, 0,
+// 		0, 0, -0.086, 1);//模型不变，index为0
+	cv::Mat ObjectTransform = (cv::Mat_<double>(4, 4) <<
+		1, 0, 0, 0,
+		0, 1, 0, 0,
+		0, 0, 1, 0,
+		0, 0, 0, 1);
+	CTestFine.Initialize(Intrinsic, IveModelName, modelRadius, ObjectTransform);
+
+	double t_begin = cv::getTickCount();
 	test = testimg.clone();
 	_EdgeDetector.SetSrcImg(test);
-	contour = _EdgeDetector.CannyContourDetection(50, 150);
+	contour = _EdgeDetector.CannyContourDetection(100, 200);
+	double t_end = cv::getTickCount();
+	double t_cost = (t_end - t_begin) / cv::getTickFrequency() * 1000;
+	cout << "轮廓检测耗时(ms)： " << t_cost << endl;
 
 	temp = contour.clone();
 	temp = _EdgeDetector.FilterTurning(temp, 5);
 	temp = _EdgeDetector.FilterLines(temp);
-	temp = _EdgeDetector.FilterLength(temp, 10);
+ 	temp = _EdgeDetector.FilterLength(temp, 10);
 	edges = _EdgeDetector.GetFinalContours();
 
+	double t_refine = cv::getTickCount();
+	t_cost = (t_refine - t_end) / cv::getTickFrequency() * 1000;
+	cout << "轮廓预处理耗时(ms)： " << t_cost << endl;
+
 	_EllipseDetector.SetSrcImg(test);
-	_EllipseDetector.SetFilter_radius(100.);//100
+	_EllipseDetector.SetFilter_radius(100.0);//100
 	_EllipseDetector.DetectEllipses(temp, edges);
+
+	double t_ell = cv::getTickCount();
+	t_cost = (t_ell - t_refine) / cv::getTickFrequency() * 1000;
+	cout << "椭圆检测处理耗时(ms)： " << t_cost << endl;
 
 	ellResult = _EllipseDetector.GetEllDetectionResult();
 	ellMats = _EllipseDetector.GetEllMatResult();
 	ellRects = _EllipseDetector.GetEllRects();
 
-	//Ini Pose Estimator
-	PoseEstimation CTestFine;
-	cv::Mat Intrinsic = (cv::Mat_<double>(3, 3) << 827.50897692124522, 0, 299.60111699063754,
-		0, 814.73836342732341, 256.75622898129393, 0, 0, 1);
-	string IveModelName = "../Data/Temp/cylinder.ive";
-	float modelRadius = 178;
-	cv::Mat ObjectTransform = (cv::Mat_<double>(4, 4) << -1, 0, 0, 0,
-		0, 1, 0, 0,
-		0, 0, -1, 0,
-		0, 0, 0, 1);
-	CTestFine.Initialize(Intrinsic, IveModelName, modelRadius, ObjectTransform);
-
-	//Get vector<Mat> CoarsePoses
 	vector<cv::Mat> CoarsePoses;
 	CTestFine.CalCoarsePoses(ellMats);
 	CoarsePoses = CTestFine.GetCoarsePoses();
+	double t_coarsepose = cv::getTickCount();
+	t_cost = (t_coarsepose - t_ell) / cv::getTickFrequency() * 1000;
+	cout << "位姿粗估计处理耗时(ms)： " << t_cost << endl;
 
 	if (CoarsePoses.size() == 0)
 		return;
 	//Select CandidatePose using default gradient mode
 	CTestFine.SetCapImg(testimg);
 	CTestFine.SelectCandidatePose(CoarsePoses, ellRects,2);
-	cout << "The candidate ell's index is: " << CTestFine.GetCandidateEllIndex() << endl;
-	cout << "The candidate pose matrix is: " << endl << CTestFine.GetCandidatePose() << endl;
+	double t_candipose = cv::getTickCount();
+	t_cost = (t_candipose - t_coarsepose) / cv::getTickFrequency() * 1000;
+	cout << "迭代起点选择处理耗时(ms)： " << t_cost << endl;
+	
+	//cout << "The candidate ell's index is: " << CTestFine.GetCandidateEllIndex() << endl;
+	//cout << "The candidate pose matrix is: " << endl << CTestFine.GetCandidatePose() << endl;
 
 	//Cal Fine pose and show AR Registered img
 	CTestFine.CalFinePoseBy3DIC41DOF();
+	double t_finepose = cv::getTickCount();
+	t_cost = (t_finepose - t_candipose) / cv::getTickFrequency() * 1000;
+	cout << "位姿精估计处理耗时(ms)： " << t_cost << endl;
 
-//#ifdef VERBOSE
+#ifdef VERBOSE
 	cv::Mat FineARImg;
 	FineARImg = CTestFine.GetFineImg();
 	imshow("fine", FineARImg);
 	waitKey(50);
-//#endif // VERBOSE
+#endif
 
 #ifdef SAVEDATA
-	string saveImgName = "../Data/Out/FineAR.jpg";
-	string saveSrcName = "../Data/Out/SrcImg.jpg";
-	string savePoseMatName = "../Data/Out/FinePose.txt";
-	cv::Mat ARMat;
+// 	string saveImgName = "../Data/Out/FineAR.jpg";
+// 	string saveSrcName = "../Data/Out/SrcImg.jpg";
+// 	string savePoseMatName = "../Data/Out/FinePose.txt";
+	string saveSrcName = "F:/Datasets/EPFL_can/YXYexp/SrcImg.jpg";
+	string saveEllName = "F:/Datasets/EPFL_can/YXYexp/EllImg.jpg";
+	string saveImgName = "F:/Datasets/EPFL_can/YXYexp/FineAR.jpg";
+	string savePoseMatName = "F:/Datasets/EPFL_can/YXYexp/FinePose.txt";
+	cv::Mat ARMat,EllImg;
+	EllImg = _EllipseDetector.GetSrcImg();
 	ARMat = CTestFine.GetFineImg();
 	imwrite(saveImgName, ARMat);
 	imwrite(saveSrcName, testimg);
+	imwrite(saveEllName, EllImg);
 	cv::Mat FinePoseMat;
 	FinePoseMat = CTestFine.GetFinePose();
 	WriteCVPoseMatToFile(savePoseMatName, FinePoseMat);
@@ -605,11 +644,16 @@ void TestRotIterFinePoseVideo()
 		0, 0, 0, 1);
 	CTestFine.Initialize(Intrinsic, IveModelName, modelRadius, ObjectTransform);
 
-	cap.open("../Data/vid/SimpleBright.wmv");
+	cap.open("D:/Datasets/IJAMT/nedplus.mp4");
+	int framenumber = 0;
 	while (cap.isOpened())
 	{
+		framenumber++;
+		cout << "addressing the " << framenumber << " th frame." << endl;
 		cap >> testimg;
 		test = testimg.clone();
+		imshow("src", testimg);
+		waitKey(10);
 		_EdgeDetector.SetSrcImg(test);
 		contour = _EdgeDetector.CannyContourDetection(50, 150);
 
@@ -638,7 +682,7 @@ void TestRotIterFinePoseVideo()
 		CTestFine.SelectCandidatePose(CoarsePoses, ellRects);
 		CTestFine.CalFinePoseBy3DIC41DOF();
 
-		//CTestFine.GetARGenerator().SetReInitialize(true);
+		CTestFine.GetARGenerator().SetReInitialize(true);
 		CTestFine.GetARGenerator().SetBgImgMat(testimg);
 		FineARImg = CTestFine.GetFineImg();
 		imshow("fine", FineARImg);
@@ -783,9 +827,117 @@ void SyntheticValidator()
 	ofile_score.close();
 }
 
+void TestGearbox()
+{
+	cv::Mat testimg = cv::imread("D:/Datasets/GearboxImgs/Picture17.jpg");
+	//cv::Mat testimg = cv::imread("../Data/coarse2.png");
+	cv::Mat test, contour, temp, result;
+	vector<vector<cv::Point>> edges;
+	EdgeDetection _EdgeDetector;
+	EllipseDetection _EllipseDetector;
+	vector<ElliFit::Ellipse> ellResult;
+	vector<cv::Mat> ellMats;
+	vector<cv::Rect> ellRects;
+
+	//Ini Pose Estimator
+	PoseEstimation CTestFine;
+	cv::Mat Intrinsic = (cv::Mat_<double>(3, 3) << 827.50897692124522, 0, 299.60111699063754,
+		0, 814.73836342732341, 256.75622898129393, 0, 0, 1);
+	string IveModelName = "D:/Datasets/GearboxModels/REVERSEGEAR.ive";
+	float modelRadius = 15;
+	cv::Mat ObjectTransform = (cv::Mat_<double>(4, 4) << 
+		0, 1, 0, 0,
+		0, 0, 1, 0,
+		1, 0, 0, 0,
+		0, 0, 0, 1);
+	CTestFine.Initialize(Intrinsic, IveModelName, modelRadius, ObjectTransform);
+
+	double t_begin = cv::getTickCount();
+	test = testimg.clone();
+	_EdgeDetector.SetSrcImg(test);
+	contour = _EdgeDetector.CannyContourDetection(50, 150);
+	double t_end = cv::getTickCount();
+	double t_cost = (t_end - t_begin) / cv::getTickFrequency() * 1000;
+	cout << "轮廓检测耗时(ms)： " << t_cost << endl;
+
+	temp = contour.clone();
+	temp = _EdgeDetector.FilterTurning(temp, 5);
+	temp = _EdgeDetector.FilterLines(temp);
+	temp = _EdgeDetector.FilterLength(temp, 10);
+	edges = _EdgeDetector.GetFinalContours();
+
+	double t_refine = cv::getTickCount();
+	t_cost = (t_refine - t_end) / cv::getTickFrequency() * 1000;
+	cout << "轮廓预处理耗时(ms)： " << t_cost << endl;
+
+	_EllipseDetector.SetSrcImg(test);
+	_EllipseDetector.SetFilter_radius(15);//100
+	_EllipseDetector.DetectEllipses(temp, edges);
+
+	double t_ell = cv::getTickCount();
+	t_cost = (t_ell - t_refine) / cv::getTickFrequency() * 1000;
+	cout << "椭圆检测处理耗时(ms)： " << t_cost << endl;
+
+	ellResult = _EllipseDetector.GetEllDetectionResult();
+	ellMats = _EllipseDetector.GetEllMatResult();
+	ellRects = _EllipseDetector.GetEllRects();
+
+	vector<cv::Mat> CoarsePoses;
+	CTestFine.CalCoarsePoses(ellMats);
+	CoarsePoses = CTestFine.GetCoarsePoses();
+	double t_coarsepose = cv::getTickCount();
+	t_cost = (t_coarsepose - t_ell) / cv::getTickFrequency() * 1000;
+	cout << "位姿粗估计处理耗时(ms)： " << t_cost << endl;
+
+	if (CoarsePoses.size() == 0)
+		return;
+	//Select CandidatePose using default gradient mode
+	CTestFine.SetCapImg(testimg);
+	CTestFine.SelectCandidatePose(CoarsePoses, ellRects, 2);
+	double t_candipose = cv::getTickCount();
+	t_cost = (t_candipose - t_coarsepose) / cv::getTickFrequency() * 1000;
+	cout << "迭代起点选择处理耗时(ms)： " << t_cost << endl;
+
+	//cout << "The candidate ell's index is: " << CTestFine.GetCandidateEllIndex() << endl;
+	//cout << "The candidate pose matrix is: " << endl << CTestFine.GetCandidatePose() << endl;
+
+	//Cal Fine pose and show AR Registered img
+	CTestFine.CalFinePoseBy3DIC41DOF();
+	double t_finepose = cv::getTickCount();
+	t_cost = (t_finepose - t_candipose) / cv::getTickFrequency() * 1000;
+	cout << "位姿精估计处理耗时(ms)： " << t_cost << endl;
+
+#ifdef VERBOSE
+	cv::Mat FineARImg;
+	FineARImg = CTestFine.GetFineImg();
+	imshow("fine", FineARImg);
+	waitKey(50);
+#endif
+
+#ifdef SAVEDATA
+	string saveImgName = "D:/Datasets/GearboxExperiment/FineAR.jpg";
+	//ImageFile = D:\Datasets\GearboxImgs\Picture23.jpg
+	// 	string saveSrcName = "../Data/Out/SrcImg.jpg";
+	// 	string savePoseMatName = "../Data/Out/FinePose.txt";
+	//string saveImgName = "D:/Datasets/GearboxExperiment/FineAR.jpg";
+	//string saveSrcName = "D:/Datasets/GearboxExperiment/SrcImg.jpg";
+	string saveCoarseMatName = "D:/Datasets/GearboxExperiment/CoarsePose.txt";
+	string savePoseMatName = "D:/Datasets/GearboxExperiment/FinePose.txt";
+	cv::Mat ARMat;
+	ARMat = CTestFine.GetFineImg();
+	imwrite(saveImgName, ARMat);
+	//imwrite(saveSrcName, testimg);
+	cv::Mat FinePoseMat,CandidatePose;
+	FinePoseMat = CTestFine.GetFinePose();
+	CandidatePose = CTestFine.GetCandidatePose();
+	WriteCVPoseMatToFile(saveCoarseMatName, CandidatePose);
+	WriteCVPoseMatToFile(savePoseMatName, FinePoseMat);
+#endif
+}
+
 void RunAllTests()
 {
-	//cv::Mat testimg = cv::imread("../Data/ellfigure/test38.jpg");
+	//cv::Mat testimg = cv::imread("D:/Datasets/GearboxImgs/Picture19.jpg");
 	try
 	{
 		/*cout << "CVCalibTest()......" << endl;
@@ -844,9 +996,9 @@ void RunAllTests()
 		TestKpsHomoFinePose();
 		cout << ".....................ok" << endl;*/
 
-		/*cout << "TestRotIterFinePose()......" << endl;
+		cout << "TestRotIterFinePose()......" << endl;
 		TestRotIterFinePose();
-		cout << ".....................ok" << endl;*/
+		cout << ".....................ok" << endl;
 
 		/*cout << "TestRotIterFinePoseVideo()......" << endl;
 		TestRotIterFinePoseVideo();
@@ -856,9 +1008,13 @@ void RunAllTests()
 		TestCal6DPoseError();
 		cout << ".....................ok" << endl;*/
 
-		cout << "SyntheticValidator()......" << endl;
+		/*cout << "SyntheticValidator()......" << endl;
 		SyntheticValidator();
-		cout << ".....................ok" << endl;
+		cout << ".....................ok" << endl;*/
+
+		/*cout << "TestGearbox()......" << endl;
+		TestGearbox();
+		cout << ".....................ok" << endl;*/
 	}
 
 	catch (char const* message)

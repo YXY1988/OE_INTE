@@ -23,6 +23,8 @@ void PoseEstimation::Initialize(cv::Mat & Intrinsic, string & ModelPath, float &
 	m_ObjectTransform = ObjectTransform;
 
 	m_SyncGenerator.SetUseImgBgFlag(false);
+	m_SyncGenerator.SetUseTransparent(false);
+	m_SyncGenerator.SetUseWireframe(false);
 	m_SyncGenerator.SetCameraIntrinsic(Intrinsic);
 	m_SyncGenerator.SetModelName(m_ModelName);
 	m_SyncGenerator.SetObjectSelfTransform(m_ObjectTransform);
@@ -30,6 +32,9 @@ void PoseEstimation::Initialize(cv::Mat & Intrinsic, string & ModelPath, float &
 	m_ARGenerator.SetCameraIntrinsic(Intrinsic);
 	m_ARGenerator.SetModelName(m_ModelName);
 	m_ARGenerator.SetObjectSelfTransform(m_ObjectTransform);
+
+	m_SyncGenerator.Initialize();
+	m_ARGenerator.Initialize();
 }
 
 cv::Mat PoseEstimation::GenerateTemplateImg(cv::Mat & pose)
@@ -37,9 +42,9 @@ cv::Mat PoseEstimation::GenerateTemplateImg(cv::Mat & pose)
 	cv::Mat result;
 	cv::Mat OsgPoseMat = pose.t();
 	m_SyncGenerator.SetPoseMat(OsgPoseMat);
-	m_SyncGenerator.SetUseImgBgFlag(false);
-	m_SyncGenerator.SetUseTransparent(false);
-	m_SyncGenerator.SetUseWireframe(false);
+	//m_SyncGenerator.SetUseImgBgFlag(false);
+	//m_SyncGenerator.SetUseTransparent(false);
+	//m_SyncGenerator.SetUseWireframe(false);
 	result = m_SyncGenerator.GetSyntheticImg();
 	return result;
 }
@@ -177,7 +182,7 @@ float PoseEstimation::CalImgErrorByGF(cv::Mat & m_CapImg, cv::Mat & m_TmplImg)
 
 	ConvertImageToFloat(m_TmplImg);
 	ConvertImageToFloat(m_CapImg);
-	StructOfArray2di controlPoints = CreateGridOfControlPoints(m_TmplImg, 30, 0.0f, 0.0f);
+	StructOfArray2di controlPoints = CreateGridOfControlPoints(m_TmplImg, 20, 0.0f, 0.0f);
 
 	StructOfArray2di pixelsOnTemplate = controlPoints;
 	Mat grayscaleFloatTemplate = m_TmplImg;
@@ -345,7 +350,7 @@ void PoseEstimation::CalCoarsePoses(vector<cv::Mat>& ellMats)
 			else
 				w = -1;
 			pNorm = sqrt((lmd3 - lmd2) / (lmd3 - lmd1))*Vmax + w * sqrt((lmd2 - lmd1) / (lmd3 - lmd1))*Vmin;
-			if (pNorm.at<double>(2, 0) < 0)
+			if (pNorm.at<double>(2, 0) < 0)//因为采用can模型注释掉
 				pNorm = -pNorm;
 			cv::normalize(pNorm, pNorm);
 			nCenter = Qone.inv()*pNorm;
@@ -389,7 +394,7 @@ void PoseEstimation::SelectCandidatePose(vector<cv::Mat>& CoarsePoses, vector<cv
 	cv::Mat CapRoi;
 	cv::Mat TmplRoi;
 	int pose_index;
-	//m_SyncGenerator.SetReInitialize(true);
+	m_SyncGenerator.SetReInitialize(true);
 
 	if (CoarsePoses.size() == 0 || ellRects.size() == 0)
 	{
@@ -409,7 +414,8 @@ void PoseEstimation::SelectCandidatePose(vector<cv::Mat>& CoarsePoses, vector<cv
 		ellRect = ellRects[i / 2];
 		CapRoi = m_CapImg(ellRect).clone();
 		TmplRoi = tmpl_full(ellRect).clone();
-
+		
+		//double t_begin = cv::getTickCount();
 		switch (ErrMode)
 		{
 		case 1:
@@ -424,9 +430,12 @@ void PoseEstimation::SelectCandidatePose(vector<cv::Mat>& CoarsePoses, vector<cv
 		default: 
 			break;
 		}
-#ifdef DETAIL
+// 		double t_end = cv::getTickCount();
+// 		double t_cost = (t_end - t_begin) / cv::getTickFrequency() * 1000;
+// 		cout << "计算Score耗时(ms)： " << t_cost << endl;
+//#ifdef DETAIL
 		cout << "The candidate score of pose " << i << " is " << fTempScore << endl;
-#endif
+//#endif
 		if(fTempScore<fPoseScore)
 		{	
 			fPoseScore = fTempScore;
@@ -434,13 +443,19 @@ void PoseEstimation::SelectCandidatePose(vector<cv::Mat>& CoarsePoses, vector<cv
 		}
 	}
 
+#ifdef DETAIL
 	cout << "The minimal candidate pose score is: " << fPoseScore << endl;
-	m_FinalScore = fPoseScore;
+#endif
+	//pose_index = 1; //暂时写死
 	m_CandidatePose = CoarsePoses[pose_index];
 	//m_CandidatePose = CoarsePoses[0];
 	m_CandidateRect = ellRects[pose_index/2];
 	//m_SyncGenerator.SetReInitialize(true);
+	//double t_beginGentemp = cv::getTickCount();
 	m_TmplImg = GenerateTemplateImg(m_CandidatePose);
+// 	double t_endGentemp = cv::getTickCount();
+// 	double t_cost = (t_endGentemp - t_beginGentemp) / cv::getTickFrequency() * 1000;
+// 	cout << "生成单张模板耗时(ms)： " << t_cost << endl;
 	m_iCandidateEllIndex = pose_index / 2;
 
 	//以下两行可以看到 Candidate PE的AR效果，不应用 m_TmplImg
@@ -509,7 +524,7 @@ void PoseEstimation::SelectFinePoses(vector<cv::Mat>& VecPoses, cv::Rect & rect,
 	cout << "The minimal fine pose score is: " << fPoseScore << endl;
 	m_FinePose= VecPoses[pose_index];
 	cout << "The fine pose is: " << endl<<m_FinePose << endl;
-	m_SyncGenerator.SetReInitialize(true);
+	//m_SyncGenerator.SetReInitialize(true);
 	ARImg = GenerateARImg(m_FinePose,m_CapImg);
 }
 
@@ -699,29 +714,40 @@ void PoseEstimation::CalFinePoseBy3DIC41DOF()
 #pragma  region CAL_BY_STEP
 	//Todo: 2. 按照 score 收敛的变化量调整 theta 的步长，逐渐 choose best templates，比如 30度生成 12 个 templates，选最接近的，60度再生成 12 个 templates, 之后 10° 生成 10 个 templates,误差控制在1°
 	Mat NormVec_Z = (cv::Mat_<double>(1, 3) << 0, 0, 1);
-	GenPoses = GenRotPoses(m_CandidatePose,NormVec_Z,PI,PI/6);
-	temp_FinePose = SelectOptimalPose(GenPoses, temproi, imageroi,3);
-
 	Mat NormVec_X = (cv::Mat_<double>(1, 3) << 1, 0, 0);
-	GenPoses = GenRotPoses(temp_FinePose, NormVec_X, PI / 6, PI / 36);
-	temp_FinePose = SelectOptimalPose(GenPoses, temproi, imageroi, 3);
-	GenPoses = GenRotPoses(temp_FinePose, NormVec_X, PI / 36, PI / 180);
-	temp_FinePose = SelectOptimalPose(GenPoses, temproi, imageroi,3);
 	Mat NormVec_Y = (cv::Mat_<double>(1, 3) << 0, 1, 0);
-	GenPoses = GenRotPoses(temp_FinePose, NormVec_Y, PI /6, PI / 36);
-	temp_FinePose = SelectOptimalPose(GenPoses, temproi, imageroi, 3);
-	GenPoses = GenRotPoses(temp_FinePose, NormVec_Y, PI / 36, PI / 180);
-	temp_FinePose = SelectOptimalPose(GenPoses, temproi, imageroi, 3);
+
+	
+	GenPoses = GenRotPoses(m_CandidatePose,NormVec_Z,PI,PI/6);
+	temp_FinePose = SelectOptimalPose(GenPoses, temproi, imageroi,2);
+// 	GenPoses = GenRotPoses(m_CandidatePose,NormVec_Z,PI,PI/6);
+// 	temp_FinePose = SelectOptimalPose(GenPoses, temproi, imageroi,2);
+	
+	
+
 	//z 轴优化放到前面也可以，放到最后也可以
 	GenPoses = GenRotPoses(temp_FinePose, NormVec_Z, PI / 3, PI / 36);
 	temp_FinePose = SelectOptimalPose(GenPoses, temproi, imageroi, 2);
 	GenPoses = GenRotPoses(temp_FinePose, NormVec_Z, PI / 36, PI / 180);
 	temp_FinePose = SelectOptimalPose(GenPoses, temproi, imageroi, 2);
+	GenPoses = GenTransPoses(temp_FinePose, NormVec_Z, 0.010, 0.001);
+	temp_FinePose = SelectOptimalPose(GenPoses, temproi, imageroi, 2);
+
+// 	GenPoses = GenRotPoses(temp_FinePose, NormVec_X, PI / 6, PI / 36);
+// 	temp_FinePose = SelectOptimalPose(GenPoses, temproi, imageroi,2);
+// 	GenPoses = GenRotPoses(temp_FinePose, NormVec_X, PI / 36, PI / 180);
+// 	temp_FinePose = SelectOptimalPose(GenPoses, temproi, imageroi,2);
+// 
+// 	GenPoses = GenRotPoses(temp_FinePose, NormVec_Y, PI /6, PI / 36);
+// 	temp_FinePose = SelectOptimalPose(GenPoses, temproi, imageroi, 2);
+// 	GenPoses = GenRotPoses(temp_FinePose, NormVec_Y, PI / 36, PI / 180);
+// 	temp_FinePose = SelectOptimalPose(GenPoses, temproi, imageroi, 2);
 
 #pragma  endregion CAL_BY_STEP
 	//Todo: 3. 配置 Release 加快试验速度
 	
-//#ifdef DETAIL
+	m_FinePose = temp_FinePose;
+#ifdef DETAIL
 	temp_sync = GenerateTemplateImg(temp_FinePose);
 	cvtColor(temp_sync, temp_sync, CV_BGR2GRAY);
 	Mat CapRoi = imageroi;
@@ -729,16 +755,15 @@ void PoseEstimation::CalFinePoseBy3DIC41DOF()
 	float fineScore = CalImgErrorByGF(CapRoi, TmplRoi);
 	m_FinalScore = fineScore;
 	cout << "The minimal fine pose score is: " << fineScore << endl;
-//#endif
-	m_FinePose = temp_FinePose;
-	cout << "The fine pose is: " << endl << m_FinePose << endl;
-// 	m_ARGenerator.SetReInitialize(true);
-// 	m_FineImg = GenerateARImg(m_FinePose, m_CapImg);
-	
-#ifdef SHOWIMG
-	imshow("Final optimized 1D rot pose", m_FineImg);
-	waitKey(0);
 #endif
+
+//#ifdef SHOWIMG
+	//cout << "The fine pose is: " << endl << m_FinePose << endl;
+	m_ARGenerator.SetReInitialize(true);
+	m_FineImg = GenerateARImg(m_FinePose, m_CapImg);  
+	//imshow("Final optimized 1D rot pose", m_FineImg);
+	//waitKey(0);
+//#endif
 }
  
 Mat PoseEstimation::SelectOptimalPose(vector<cv::Mat>& Poses, cv::Rect & rect, cv::Mat & CapRoi, int ErrMode)

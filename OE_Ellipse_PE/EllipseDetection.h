@@ -72,6 +72,8 @@ namespace ElliFit {
 		double DistPointToEll(cv::Point pt, cv::Mat m_ell);
 		bool IsEnoughPtsOnEll(int ContourSize, float a, float b,float thresh);
 
+		//bool EllipseSort(const Ellipse &v1, const Ellipse &v2);
+
 		//计算 Sampson error 需要把椭圆参数转换为椭圆方程矩阵
 		cv::Mat EllParam2EllMat(Ellipse ell);
 	

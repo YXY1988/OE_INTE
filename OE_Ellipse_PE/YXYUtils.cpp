@@ -438,7 +438,7 @@ void yxy::Validator::save(ofstream& ofile)
 
 }
 
-
+//camera calibration
 void yxy::CameraParam::ReadCVCalibParam(string & cvCalibFileName)
 {
 	bool FSflag = false;

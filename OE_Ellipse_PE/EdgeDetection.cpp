@@ -1961,7 +1961,7 @@ cv::Mat EdgeDetection::FilterLines(cv::Mat& binImg)
 	vector<cv::Point> SingleContour;
 	int size_all = AllContours.size();
 	bool IsLine = false;
-	double LineThresh = 2.0;
+	double LineThresh = 1.0;
 
 #pragma omp parallel for
 	for (int i = 0;i < size_all;i++)
