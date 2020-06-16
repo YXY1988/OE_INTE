@@ -37,7 +37,7 @@ void yxy::GetAllFiles(string& path, vector<string>& files)
 
 		}while(_findnext(hFile, &fileinfo)  == 0);    
 
-		_findclose(hFile); 
+		_findclose(hFile); 
 	}
 
 }
